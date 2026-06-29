@@ -152,3 +152,4 @@ docs/               # Architecture, plans, patterns, specs
 - Security-sensitive cleanup bugs: see [SECURITY.md](SECURITY.md).
 - Release notes: see [CHANGELOG.md](CHANGELOG.md).
 - Maintainer release process: see [RELEASE.md](RELEASE.md).
+- Localized quick-start docs: see [docs/i18n/](docs/i18n/).

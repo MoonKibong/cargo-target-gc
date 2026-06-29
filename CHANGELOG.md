@@ -15,6 +15,9 @@ once public releases begin.
 - Fresh incremental cache retention for edit-build performance.
 - Documentation, license files, contribution guide, security policy, and GitHub
   project templates for open source readiness.
+- Localized quick-start documentation in Arabic, Chinese, Dutch, Finnish,
+  French, German, Hindi, Indonesian, Japanese, Korean, Portuguese, Russian,
+  Spanish, Swahili, Swedish, and Vietnamese.
 
 ### Changed
 

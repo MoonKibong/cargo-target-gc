@@ -38,6 +38,17 @@ Before opening a pull request:
 3. Link related issues when available.
 4. Include terminal output or screenshots for CLI output changes.
 5. Call out any safety impact, especially changes to deletion scope.
+6. For documentation or user-facing CLI text changes, update every localized
+   quick-start file under `docs/i18n/`, or explain in the pull request why the
+   change does not affect localized docs.
 
 Use concise imperative commit messages, for example `Add clean limit guard` or
 `Document target root expectations`.
+
+## Localized Documentation
+
+The localized quick starts in `docs/i18n/` are part of the shipped public docs.
+Keep them aligned with the English README when changing commands, safety
+language, configuration keys, install instructions, or where users should run
+`cargo target-gc`. If you cannot confidently update a language, keep the English
+source change small and ask for translation review in the pull request.

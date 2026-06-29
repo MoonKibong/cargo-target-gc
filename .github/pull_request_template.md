@@ -8,6 +8,7 @@ What changed?
 - [ ] `make lint`
 - [ ] `make test`
 - [ ] Manual CLI check, if user-facing output changed
+- [ ] Updated `docs/i18n/` translations, or noted why not applicable
 
 ## Safety Impact
 
