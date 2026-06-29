@@ -7,6 +7,8 @@ once public releases begin.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-30
+
 ### Added
 
 - Cargo `target/` scan reports for reclaimable and retained artifacts.
