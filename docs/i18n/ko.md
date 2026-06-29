@@ -34,6 +34,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -45,6 +46,13 @@ cargo target-gc install-agent-skills
 - `clean`은 `--dry-run` 또는 `--confirm` 중 정확히 하나가 없으면 거부합니다.
 - 기본 `clean`은 오래된 incremental 캐시만 회수합니다.
 - `--stale`을 추가하면 보존 기간보다 오래된 stale 아티팩트도 회수합니다.
+- `--profile-cache`는 fresh incremental cache와 최근 `deps`, `build`,
+  `.fingerprint`, `examples`까지 포함하는 더 강한 모드입니다. 먼저
+  `--dry-run`으로 확인하세요.
+- 옵션 없는 `cargo clean`은 전체 `target/`을 지우고, `--package`,
+  `--profile`, `--target` 같은 Cargo 옵션도 선택한 범위 전체를 정리합니다.
+  target-gc는 나이와 카테고리 기준으로 정리해 더 많은 build cache를
+  보존합니다.
 - 활성 Cargo/rustc 프로세스가 선택된 target 루트를 사용하는 것처럼 보이면
   확인된 삭제를 거부합니다.
 - 삭제 경로는 검증된 Cargo `target/` 루트 안으로 제한됩니다.

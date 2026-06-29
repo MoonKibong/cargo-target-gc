@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,13 @@ cargo target-gc install-agent-skills
 - `clean` menolak berjalan tanpa tepat satu dari `--dry-run` atau `--confirm`.
 - Secara default, `clean` hanya mengklaim kembali cache incremental lama.
 - Dengan `--stale`, artefak stale yang lebih lama dari masa retensi juga diklaim kembali.
+- `--profile-cache` adalah mode yang lebih kuat dan juga mencakup cache
+  incremental baru serta direktori baru seperti `deps`, `build`, `.fingerprint`,
+  dan `examples`. Periksa dulu dengan `--dry-run`.
+- `cargo clean` tanpa opsi menghapus seluruh `target/`; opsi Cargo seperti
+  `--package`, `--profile`, dan `--target` membersihkan seluruh scope yang
+  dipilih. target-gc membersihkan berdasarkan umur dan kategori agar lebih
+  banyak cache build tetap tersimpan.
 - Jika proses Cargo/rustc aktif tampak memakai target yang dipilih, penghapusan terkonfirmasi ditolak.
 - Jalur penghapusan dibatasi ke root Cargo `target/` yang sudah divalidasi.
 

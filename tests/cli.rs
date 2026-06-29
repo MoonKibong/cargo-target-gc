@@ -199,7 +199,8 @@ fn clean_help_lists_flags() {
         .stdout(contains("--confirm"))
         .stdout(contains("--force-active"))
         .stdout(contains("--max-reclaim"))
-        .stdout(contains("--stale"));
+        .stdout(contains("--stale"))
+        .stdout(contains("--profile-cache"));
 }
 
 #[test]
@@ -366,6 +367,47 @@ fn clean_dry_run_leaves_target_unchanged() {
         .stdout(contains("reclaimable:"));
 
     assert_eq!(tree_fingerprint(&target), before, "dry-run mutated target/");
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn clean_profile_cache_dry_run_includes_fresh_deps() {
+    let root = temp_project("profile-cache");
+    let target = root.join("target");
+    let before = tree_fingerprint(&target);
+
+    target_gc()
+        .args(["clean", "--dry-run", "--profile-cache", "--path"])
+        .arg(&root)
+        .assert()
+        .success()
+        .stdout(contains("profile-cache mode: enabled"))
+        .stdout(contains("profile_cache"))
+        .stdout(contains("debug/deps"));
+
+    assert_eq!(
+        tree_fingerprint(&target),
+        before,
+        "profile-cache dry-run mutated target/"
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn clean_profile_cache_json_marks_mode() {
+    let root = temp_project("profile-cache-json");
+    let output = target_gc()
+        .args(["clean", "--dry-run", "--profile-cache", "--json", "--path"])
+        .arg(&root)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).expect("utf8 stdout");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("stdout is valid JSON");
+    assert_eq!(value["include_profile_cache"], true);
+    assert!(value["reclaimable_bytes"].as_u64().expect("bytes") >= 1000);
     let _ = fs::remove_dir_all(&root);
 }
 

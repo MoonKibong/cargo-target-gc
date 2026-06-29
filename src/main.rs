@@ -24,7 +24,8 @@ fn main() -> Result<()> {
             force_active,
             max_reclaim,
             stale,
-        } => run_clean(
+            profile_cache,
+        } => run_clean(CleanOptions {
             path,
             json,
             dry_run,
@@ -32,7 +33,8 @@ fn main() -> Result<()> {
             force_active,
             max_reclaim,
             stale,
-        ),
+            profile_cache,
+        }),
         Command::Config { path } => run_config(path),
         Command::InstallAgentSkills {
             claude_skills_dir,
@@ -105,7 +107,7 @@ fn run_scan(path: Option<PathBuf>, json: bool) -> Result<()> {
 /// Refuses (nonzero exit) unless exactly one of `--dry-run` / `--confirm` is
 /// given; clap rejects passing both, and this function rejects passing neither.
 /// `--dry-run` previews and deletes nothing; `--confirm` executes.
-fn run_clean(
+struct CleanOptions {
     path: Option<PathBuf>,
     json: bool,
     dry_run: bool,
@@ -113,37 +115,61 @@ fn run_clean(
     force_active: bool,
     max_reclaim: Option<u64>,
     stale: bool,
-) -> Result<()> {
-    if !dry_run && !confirm {
+    profile_cache: bool,
+}
+
+fn run_clean(options: CleanOptions) -> Result<()> {
+    if !options.dry_run && !options.confirm {
         bail!(
             "clean requires an explicit mode: pass --dry-run to preview removals \
              or --confirm to delete reclaimable artifacts"
         );
     }
 
-    let root = resolve(path);
-    let plan = clean::plan(&root, stale)
+    let root = resolve(options.path);
+    let plan = clean::plan(&root, options.stale, options.profile_cache)
         .with_context(|| format!("clean planning failed for {}", root.display()))?;
 
     // clap guarantees --dry-run and --confirm are mutually exclusive, so
     // `confirm` here unambiguously selects execution over previewing.
-    if confirm {
+    if options.confirm {
         eprintln!(
             "cargo-target-gc: removing {} artifact(s)",
             plan.removals.len()
         );
-        let freed =
-            clean::execute(&plan, force_active, max_reclaim).context("executing clean plan")?;
-        emit_clean(&plan, true, freed, json)?;
+        let freed = clean::execute(&plan, options.force_active, options.max_reclaim)
+            .context("executing clean plan")?;
+        emit_clean(
+            &plan,
+            true,
+            freed,
+            options.json,
+            options.stale,
+            options.profile_cache,
+        )?;
     } else {
         eprintln!("cargo-target-gc: dry-run — no files will be removed");
-        emit_clean(&plan, false, plan.total_bytes(), json)?;
+        emit_clean(
+            &plan,
+            false,
+            plan.total_bytes(),
+            options.json,
+            options.stale,
+            options.profile_cache,
+        )?;
     }
     Ok(())
 }
 
 /// Render a clean plan/result to stdout as text or JSON.
-fn emit_clean(plan: &CleanPlan, executed: bool, bytes: u64, json: bool) -> Result<()> {
+fn emit_clean(
+    plan: &CleanPlan,
+    executed: bool,
+    bytes: u64,
+    json: bool,
+    include_stale: bool,
+    include_profile_cache: bool,
+) -> Result<()> {
     if json {
         let removals: Vec<_> = plan
             .removals
@@ -159,6 +185,8 @@ fn emit_clean(plan: &CleanPlan, executed: bool, bytes: u64, json: bool) -> Resul
         let value = serde_json::json!({
             "project_root": plan.project_root.display().to_string(),
             "executed": executed,
+            "include_stale": include_stale,
+            "include_profile_cache": include_profile_cache,
             "reclaimable_bytes": bytes,
             "removals": removals,
         });
@@ -171,6 +199,9 @@ fn emit_clean(plan: &CleanPlan, executed: bool, bytes: u64, json: bool) -> Resul
 
     let verb = if executed { "removed" } else { "would remove" };
     println!("cargo target-gc clean: {}", plan.project_root.display());
+    if include_profile_cache {
+        println!("  profile-cache mode: enabled");
+    }
     for removal in &plan.removals {
         println!(
             "  {verb} {:<12} {}  ({})",

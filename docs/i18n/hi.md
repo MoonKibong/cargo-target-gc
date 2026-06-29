@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,13 @@ cargo target-gc install-agent-skills
 - `clean` बिना ठीक एक flag, `--dry-run` या `--confirm`, के चलने से मना करता है।
 - default रूप से `clean` केवल पुराने incremental cache को reclaim करता है।
 - `--stale` जोड़ने पर retention अवधि से पुराने stale आर्टिफैक्ट भी reclaim होते हैं।
+- `--profile-cache` अधिक मजबूत mode है; यह fresh incremental cache और हाल के
+  `deps`, `build`, `.fingerprint` और `examples` directories को भी शामिल करता
+  है। पहले `--dry-run` से देखें।
+- बिना options के `cargo clean` पूरा `target/` हटाता है; Cargo options जैसे
+  `--package`, `--profile`, और `--target` पूरे चुने हुए scope को साफ करते हैं।
+  target-gc age और category के आधार पर साफ करता है ताकि अधिक build cache बचा
+  रहे।
 - अगर कोई active Cargo/rustc process चुने हुए target root का उपयोग करता दिखे, confirmed delete रोका जाता है।
 - delete paths केवल validated Cargo `target/` root के अंदर सीमित रहते हैं।
 

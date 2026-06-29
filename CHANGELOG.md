@@ -7,6 +7,18 @@ once public releases begin.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-30
+
+### Added
+
+- `clean --profile-cache` for explicitly reclaiming fresh incremental cache and
+  recent Cargo profile cache directories such as `deps`, `build`,
+  `.fingerprint`, and `examples`.
+- Scan output now reports profile cache bytes separately from ordinary retained
+  artifacts.
+- Documentation explaining how cargo-target-gc differs from both plain and
+  scoped `cargo clean` when users want to preserve some build-cache value.
+
 ## [0.1.1] - 2026-06-30
 
 ### Added

@@ -18,6 +18,8 @@ pub struct TargetRootReport {
     pub incremental_bytes: u64,
     /// Bytes in recent `incremental/` subtrees retained as warm cache.
     pub fresh_incremental_bytes: u64,
+    /// Bytes in recent Cargo profile cache directories retained unless explicitly requested.
+    pub profile_cache_bytes: u64,
     /// Bytes in stale profile artifacts.
     pub stale_bytes: u64,
     /// Bytes in retained (build-hot) artifacts.
@@ -75,8 +77,13 @@ impl ScanReport {
             );
             let _ = writeln!(
                 out,
-                "    fresh incremental: {}  retained for edit-build speed",
+                "    fresh incremental: {}  retained by default; removable with --profile-cache",
                 human(root.fresh_incremental_bytes)
+            );
+            let _ = writeln!(
+                out,
+                "    profile cache:      {}  removable with --profile-cache",
+                human(root.profile_cache_bytes)
             );
             let _ = writeln!(out, "    stale:       {}", human(root.stale_bytes));
             let _ = writeln!(out, "    retained:    {}", human(root.retained_bytes));
@@ -126,6 +133,7 @@ mod tests {
                 total_bytes: 3_250_000,
                 incremental_bytes: 1_000_000,
                 fresh_incremental_bytes: 250_000,
+                profile_cache_bytes: 125_000,
                 stale_bytes: 500_000,
                 retained_bytes: 1_750_000,
                 reclaimable_bytes: 1_500_000,

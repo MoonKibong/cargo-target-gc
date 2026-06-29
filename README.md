@@ -20,7 +20,12 @@ and switch tasks many times in one session. That is useful, but it can also
 leave gigabytes of incremental and stale build artifacts behind.
 
 cargo-target-gc gives agents and humans a conservative cleanup loop: scan first,
-preview with `--dry-run`, and delete only after explicit confirmation.
+preview with `--dry-run`, and delete only after explicit confirmation. Plain
+`cargo clean` removes the whole target directory, and Cargo's scoped clean
+options (`--package`, `--profile`, `--release`, `--target`, `--target-dir`,
+`--doc`) still remove the whole selected scope. cargo-target-gc is different: it
+classifies artifacts by age and cache role so you can reclaim space while
+preserving more build-cache value.
 
 ## Where to run cargo target-gc
 
@@ -40,7 +45,7 @@ project/workspace.
 ## How artifacts are categorized
 
 A `target/` root is analyzed by a read-only walk (no symlink following) into
-four categories:
+five categories:
 
 - **old incremental** — `incremental/` subtrees older than the warm-cache
   window. Cargo regenerates them cheaply, so they are reclaimable.
@@ -48,10 +53,13 @@ four categories:
   speed (`incremental_retention_hours`).
 - **stale** — profile artifacts whose newest modification time is older than the
   retention window (`retention_days`). Reclaimable.
+- **profile cache** — recent Cargo profile cache directories such as `deps`,
+  `build`, `.fingerprint`, and `examples`. Retained by default; removable with
+  explicit `--profile-cache` together with fresh incremental cache.
 - **retained** — build-hot artifacts within the retention window. Preserved;
   never removed.
 
-Estimated `reclaimable` space is `old incremental + stale`.
+Estimated default `reclaimable` space is `old incremental + stale`.
 
 ## Features
 
@@ -74,8 +82,8 @@ Estimated `reclaimable` space is `old incremental + stale`.
 
 ```bash
 cargo target-gc scan  [--path <DIR>] [--json]                      # Analyze target/ and report reclaimable space
-cargo target-gc clean [--path <DIR>] [--json] --dry-run [--stale]  # Preview removals (deletes nothing)
-cargo target-gc clean [--path <DIR>] [--json] --confirm [--stale] [--max-reclaim <SIZE>]
+cargo target-gc clean [--path <DIR>] [--json] --dry-run [--stale] [--profile-cache]
+cargo target-gc clean [--path <DIR>] [--json] --confirm [--stale] [--profile-cache] [--max-reclaim <SIZE>]
 cargo target-gc config [--path <DIR>]                              # Print the effective configuration
 cargo target-gc install-agent-skills [--all | --only claude,codex]  # Install Claude Code/Codex skills
 cargo target-gc --help                                             # Show usage
@@ -86,10 +94,13 @@ per-root breakdown. `clean` **refuses with a nonzero exit** unless you pass
 exactly one of `--dry-run` (preview) or `--confirm` (execute); passing both is
 rejected. By default `clean` reclaims only
 incremental artifacts; add `--stale` to also reclaim stale ones. Progress is
-written to stderr; the report/summary goes to stdout. `clean --confirm` refuses
-if an active Cargo/rustc/cargo-watch process appears to be using the selected
-target root; stop the build or pass `--force-active` only when you understand the
-risk.
+written to stderr; the report/summary goes to stdout. Add `--profile-cache` when
+an active agent-built project has a very large recent `target/` and you want a
+stronger cleanup that also includes fresh incremental cache while still staying
+narrower than a full-profile or full-target `cargo clean`. `clean --confirm`
+refuses if an active Cargo/rustc/cargo-watch process appears to be using the
+selected target root; stop the build or pass `--force-active` only when you
+understand the risk.
 
 If `scan` finds no `target/` directory, run `cargo target-gc` from the Cargo
 project or workspace root where `cargo build` creates `target/`.

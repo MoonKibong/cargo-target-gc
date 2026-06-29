@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,13 @@ cargo target-gc install-agent-skills
 - `clean` verweigert den Lauf ohne genau eines von `--dry-run` oder `--confirm`.
 - Standardmäßig entfernt `clean` nur alte incremental-Caches.
 - Mit `--stale` werden auch Artefakte entfernt, die älter als die Aufbewahrungszeit sind.
+- `--profile-cache` ist ein stärkerer Modus und umfasst auch frische
+  Incremental-Caches sowie aktuelle `deps`-, `build`-, `.fingerprint`- und
+  `examples`-Verzeichnisse. Prüfen Sie zuerst mit `--dry-run`.
+- `cargo clean` ohne Optionen entfernt das ganze `target/`; Cargo-Optionen wie
+  `--package`, `--profile` und `--target` reinigen jeweils den ganzen gewählten
+  Bereich. target-gc räumt nach Alter und Kategorie auf, um mehr Build-Cache zu
+  erhalten.
 - Wenn ein aktiver Cargo/rustc-Prozess das gewählte target zu nutzen scheint, wird bestätigtes Löschen verweigert.
 - Löschpfade bleiben auf validierte Cargo-`target/`-Wurzeln begrenzt.
 

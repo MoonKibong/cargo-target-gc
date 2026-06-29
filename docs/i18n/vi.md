@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,12 @@ cargo target-gc install-agent-skills
 - `clean` từ chối chạy nếu không có đúng một trong `--dry-run` hoặc `--confirm`.
 - Theo mặc định, `clean` chỉ thu hồi cache incremental cũ.
 - Với `--stale`, artifact stale cũ hơn thời gian giữ lại cũng được thu hồi.
+- `--profile-cache` là chế độ mạnh hơn, gồm cả incremental cache mới và các thư
+  mục mới như `deps`, `build`, `.fingerprint` và `examples`. Hãy kiểm tra trước
+  bằng `--dry-run`.
+- `cargo clean` không có tùy chọn sẽ xóa toàn bộ `target/`; các tùy chọn Cargo
+  như `--package`, `--profile`, và `--target` dọn toàn bộ phạm vi đã chọn.
+  target-gc dọn theo tuổi và danh mục để giữ lại nhiều build cache hơn.
 - Nếu process Cargo/rustc đang hoạt động có vẻ dùng target đã chọn, thao tác xóa có xác nhận sẽ bị từ chối.
 - Đường dẫn xóa bị giới hạn trong root Cargo `target/` đã được xác thực.
 

@@ -58,6 +58,9 @@ pub enum Command {
         /// Also reclaim stale profile artifacts, not just incremental caches.
         #[arg(long)]
         stale: bool,
+        /// Also reclaim fresh incremental cache and Cargo profile cache directories.
+        #[arg(long)]
+        profile_cache: bool,
     },
     /// Show the effective retention and crate-scope configuration.
     Config {

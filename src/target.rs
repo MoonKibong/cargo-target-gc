@@ -23,6 +23,8 @@ pub enum Category {
     Incremental,
     /// Recent `incremental/` subtrees — retained for edit-build speed.
     FreshIncremental,
+    /// Recent Cargo profile cache directories removable only with the explicit stronger mode.
+    ProfileCache,
     /// Profile artifacts whose newest mtime is older than the retention window.
     Stale,
     /// Build-hot artifacts within the retention window — never reclaimable.
@@ -35,6 +37,7 @@ impl Category {
         match self {
             Category::Incremental => "incremental",
             Category::FreshIncremental => "fresh_incremental",
+            Category::ProfileCache => "profile_cache",
             Category::Stale => "stale",
             Category::Retained => "retained",
         }
@@ -63,6 +66,8 @@ pub struct RootAnalysis {
     pub incremental_bytes: u64,
     /// Bytes in fresh `incremental/` subtrees retained as warm cache.
     pub fresh_incremental_bytes: u64,
+    /// Bytes in recent Cargo profile cache directories retained unless explicitly requested.
+    pub profile_cache_bytes: u64,
     /// Bytes in stale profile artifacts.
     pub stale_bytes: u64,
     /// Bytes in retained (build-hot) artifacts.
@@ -77,13 +82,18 @@ impl RootAnalysis {
         self.incremental_bytes + self.stale_bytes
     }
 
-    /// Artifacts eligible for removal. Incremental is always included; stale is
-    /// included only when `include_stale` is set.
-    pub fn reclaimable(&self, include_stale: bool) -> impl Iterator<Item = &Artifact> {
+    /// Artifacts eligible for removal. Old incremental is always included; stale,
+    /// fresh incremental, and profile cache artifacts require explicit opt-in flags.
+    pub fn reclaimable(
+        &self,
+        include_stale: bool,
+        include_profile_cache: bool,
+    ) -> impl Iterator<Item = &Artifact> {
         self.artifacts.iter().filter(move |a| match a.category {
             Category::Incremental => true,
             Category::Stale => include_stale,
-            Category::FreshIncremental | Category::Retained => false,
+            Category::FreshIncremental | Category::ProfileCache => include_profile_cache,
+            Category::Retained => false,
         })
     }
 
@@ -93,6 +103,10 @@ impl RootAnalysis {
             Category::Incremental => self.incremental_bytes += bytes,
             Category::FreshIncremental => {
                 self.fresh_incremental_bytes += bytes;
+                self.retained_bytes += bytes;
+            }
+            Category::ProfileCache => {
+                self.profile_cache_bytes += bytes;
                 self.retained_bytes += bytes;
             }
             Category::Stale => self.stale_bytes += bytes,
@@ -246,6 +260,7 @@ pub fn analyze(
         total_bytes: 0,
         incremental_bytes: 0,
         fresh_incremental_bytes: 0,
+        profile_cache_bytes: 0,
         stale_bytes: 0,
         retained_bytes: 0,
         artifacts: Vec::new(),
@@ -285,7 +300,7 @@ fn analyze_profile(
     incremental_cutoff: SystemTime,
     analysis: &mut RootAnalysis,
 ) -> Result<(), TargetError> {
-    let mut rest: Vec<(PathBuf, u64)> = Vec::new();
+    let mut rest: Vec<(PathBuf, u64, bool)> = Vec::new();
     let mut rest_newest: Option<SystemTime> = None;
 
     for entry in read_dir(profile)? {
@@ -310,18 +325,30 @@ fn analyze_profile(
                 Some(cur) => cur.max(newest),
                 None => newest,
             });
-            rest.push((path, bytes));
+            let is_cache = meta.is_dir() && is_profile_cache_dir(&path);
+            rest.push((path, bytes, is_cache));
         }
     }
 
-    let category = match rest_newest {
-        Some(newest) if newest < profile_cutoff => Category::Stale,
-        _ => Category::Retained,
-    };
-    for (path, bytes) in rest {
+    let profile_is_stale = matches!(rest_newest, Some(newest) if newest < profile_cutoff);
+    for (path, bytes, is_cache) in rest {
+        let category = if profile_is_stale {
+            Category::Stale
+        } else if is_cache {
+            Category::ProfileCache
+        } else {
+            Category::Retained
+        };
         analysis.push(path, category, bytes);
     }
     Ok(())
+}
+
+fn is_profile_cache_dir(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|n| n.to_str()),
+        Some("deps" | "build" | ".fingerprint" | "examples")
+    )
 }
 
 fn cutoff(amount: u64, unit_seconds: u64) -> SystemTime {
@@ -426,7 +453,8 @@ mod tests {
 
         // Incremental = both old incremental subtrees.
         assert_eq!(a.incremental_bytes, 500 + 700);
-        // debug/deps is fresh → retained; release/deps is old → stale.
+        // debug/deps is fresh profile cache; release/deps is old → stale.
+        assert_eq!(a.profile_cache_bytes, 1000);
         assert_eq!(a.retained_bytes, 1000 + "Signature".len() as u64);
         assert_eq!(a.stale_bytes, 2000);
         assert_eq!(a.reclaimable_bytes(), 500 + 700 + 2000);
@@ -517,13 +545,15 @@ mod tests {
         let target = root.join("target");
         let a = analyze(&target, 14, 24).expect("analyze");
 
-        let incremental_only: u64 = a.reclaimable(false).map(|x| x.bytes).sum();
+        let incremental_only: u64 = a.reclaimable(false, false).map(|x| x.bytes).sum();
         assert_eq!(incremental_only, 500 + 700);
-        let with_stale: u64 = a.reclaimable(true).map(|x| x.bytes).sum();
+        let with_stale: u64 = a.reclaimable(true, false).map(|x| x.bytes).sum();
         assert_eq!(with_stale, 500 + 700 + 2000);
+        let with_profile_cache: u64 = a.reclaimable(false, true).map(|x| x.bytes).sum();
+        assert_eq!(with_profile_cache, 500 + 700 + 1000);
         // No reclaimable artifact is ever Retained.
         assert!(a
-            .reclaimable(true)
+            .reclaimable(true, true)
             .all(|x| x.category != Category::Retained));
         let _ = fs::remove_dir_all(&root);
     }

@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,12 @@ cargo target-gc install-agent-skills
 - `clean` hukataa kuendelea bila moja tu kati ya `--dry-run` au `--confirm`.
 - Kwa kawaida, `clean` hurejesha cache ya incremental ya zamani pekee.
 - Ukiweka `--stale`, pia hurejesha artefact stale zilizozeeka kuliko muda wa kuhifadhi.
+- `--profile-cache` ni hali yenye nguvu zaidi na pia hujumuisha incremental
+  cache mpya na saraka mpya `deps`, `build`, `.fingerprint` na `examples`.
+  Kagua kwanza kwa `--dry-run`.
+- `cargo clean` bila chaguo hufuta `target/` yote; chaguo za Cargo kama
+  `--package`, `--profile`, na `--target` husafisha scope yote iliyochaguliwa.
+  target-gc husafisha kwa umri na aina ili kuhifadhi build cache zaidi.
 - Ikiwa process hai ya Cargo/rustc inaonekana kutumia target iliyochaguliwa, ufutaji uliothibitishwa hukataliwa.
 - Njia za kufuta huzuiwa ndani ya mizizi ya Cargo `target/` iliyothibitishwa.
 

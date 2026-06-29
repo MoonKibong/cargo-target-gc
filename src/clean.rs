@@ -120,7 +120,11 @@ impl From<TargetError> for CleanError {
 /// Incremental artifacts are always included; stale artifacts only when
 /// `include_stale` is set. Every removal is validated to live inside one of the
 /// discovered target roots.
-pub fn plan(path: &Path, include_stale: bool) -> Result<CleanPlan, CleanError> {
+pub fn plan(
+    path: &Path,
+    include_stale: bool,
+    include_profile_cache: bool,
+) -> Result<CleanPlan, CleanError> {
     let project = discovery::discover(path)?;
     let cfg = config::load(&project.root)?;
     let roots = target::locate_roots(&project, &cfg.crate_path)?;
@@ -128,7 +132,7 @@ pub fn plan(path: &Path, include_stale: bool) -> Result<CleanPlan, CleanError> {
     let mut removals = Vec::new();
     for root in &roots {
         let analysis = target::analyze(root, cfg.retention_days, cfg.incremental_retention_hours)?;
-        for artifact in analysis.reclaimable(include_stale) {
+        for artifact in analysis.reclaimable(include_stale, include_profile_cache) {
             guard_inside_root(&artifact.path, root)?;
             removals.push(Removal {
                 path: artifact.path.clone(),
@@ -236,7 +240,7 @@ mod tests {
     #[test]
     fn plan_default_targets_incremental_only() {
         let root = project("incr");
-        let plan = plan(&root, false).expect("plan");
+        let plan = plan(&root, false, false).expect("plan");
         assert_eq!(plan.total_bytes(), 500);
         assert!(plan
             .removals
@@ -248,8 +252,20 @@ mod tests {
     #[test]
     fn plan_with_stale_includes_stale() {
         let root = project("stale");
-        let plan = plan(&root, true).expect("plan");
+        let plan = plan(&root, true, false).expect("plan");
         assert_eq!(plan.total_bytes(), 500 + 2000);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn plan_with_profile_cache_includes_fresh_profile_dirs() {
+        let root = project("profile-cache");
+        let plan = plan(&root, false, true).expect("plan");
+        assert_eq!(plan.total_bytes(), 500 + 1000);
+        assert!(plan
+            .removals
+            .iter()
+            .any(|r| r.category == Category::ProfileCache));
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -257,7 +273,7 @@ mod tests {
     fn execute_removes_reclaimable_preserves_retained() {
         let root = project("exec");
         let target = root.join("target");
-        let plan = plan(&root, true).expect("plan");
+        let plan = plan(&root, true, false).expect("plan");
         let freed = execute(&plan, false, None).expect("execute");
         assert_eq!(freed, 500 + 2000);
         // Retained debug/deps survives; reclaimable artifacts are gone.
@@ -272,7 +288,7 @@ mod tests {
     #[test]
     fn execute_refuses_above_reclaim_limit() {
         let root = project("limit");
-        let plan = plan(&root, true).expect("plan");
+        let plan = plan(&root, true, false).expect("plan");
         let result = execute(&plan, false, Some(100));
         assert!(matches!(
             result,

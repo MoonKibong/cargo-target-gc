@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,13 @@ cargo target-gc install-agent-skills
 - `clean` kieltäytyy ilman täsmälleen yhtä lippua: `--dry-run` tai `--confirm`.
 - Oletuksena `clean` vapauttaa vain vanhaa incremental-välimuistia.
 - `--stale` vapauttaa myös säilytysajan ylittäneet stale-artefaktit.
+- `--profile-cache` on vahvempi tila, joka sisältää myös tuoreen
+  incremental-välimuistin sekä tuoreet `deps`-, `build`-, `.fingerprint`- ja
+  `examples`-hakemistot. Tarkista ensin `--dry-run`.
+- `cargo clean` ilman valintoja poistaa koko `target/`-hakemiston; Cargon
+  valinnat kuten `--package`, `--profile` ja `--target` siivoavat koko valitun
+  alueen. target-gc siivoaa iän ja kategorian mukaan, jotta enemmän
+  build-välimuistia säilyy.
 - Jos aktiivinen Cargo/rustc-prosessi näyttää käyttävän valittua target-juurta, vahvistettu poisto estetään.
 - Poistopolut rajataan validoidun Cargo `target/` -juuren sisälle.
 

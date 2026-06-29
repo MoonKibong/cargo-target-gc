@@ -36,6 +36,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -47,6 +48,13 @@ cargo target-gc install-agent-skills
 - `clean` weigert zonder precies één van `--dry-run` of `--confirm`.
 - Standaard ruimt `clean` alleen oude incremental-cache op.
 - Met `--stale` worden ook stale-artefacten ouder dan de bewaartermijn opgeruimd.
+- `--profile-cache` is een sterkere modus die ook verse incremental cache en
+  recente `deps`, `build`, `.fingerprint` en `examples` meeneemt. Controleer
+  eerst met `--dry-run`.
+- `cargo clean` zonder opties verwijdert heel `target/`; Cargo-opties zoals
+  `--package`, `--profile` en `--target` ruimen de hele gekozen scope op.
+  target-gc ruimt op basis van leeftijd en categorie op, zodat meer buildcache
+  behouden blijft.
 - Als een actief Cargo/rustc-proces de gekozen target-root lijkt te gebruiken, wordt bevestigde verwijdering geweigerd.
 - Verwijderpaden blijven beperkt tot gevalideerde Cargo `target/`-roots.
 

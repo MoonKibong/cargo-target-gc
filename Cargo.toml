@@ -1,6 +1,6 @@
 [package]
 name = "cargo-target-gc"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Cargo target-artifact garbage collector: analyze and reclaim target/ build artifacts"
 license = "MIT OR Apache-2.0"

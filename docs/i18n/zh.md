@@ -31,6 +31,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -42,6 +43,11 @@ cargo target-gc install-agent-skills
 - `clean` 必须且只能带有 `--dry-run` 或 `--confirm` 之一，否则会拒绝执行。
 - 默认 `clean` 只回收过期的 incremental 缓存。
 - 添加 `--stale` 后，也会回收超过保留期的 stale 产物。
+- `--profile-cache` 是更强的模式，会包含新的 incremental cache，以及近期的
+  `deps`、`build`、`.fingerprint` 和 `examples`。请先用 `--dry-run` 检查。
+- 不带选项的 `cargo clean` 会删除整个 `target/`；`--package`、`--profile`、
+  `--target` 等 Cargo 选项也会清理整个选定范围。target-gc 按时间和类别清理，
+  以保留更多构建缓存。
 - 如果检测到 Cargo/rustc 似乎正在使用选中的 target 根目录，确认删除会被拒绝。
 - 删除路径会被限制在验证过的 Cargo `target/` 根目录内。
 

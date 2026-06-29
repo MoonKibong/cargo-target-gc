@@ -83,6 +83,11 @@ large Rust build artifacts, or recover disk space after agentic coding sessions.
 - Prefer `cargo target-gc clean --dry-run` before any deletion.
 - Do not run `cargo target-gc clean --confirm` unless the user explicitly approves deletion.
 - Do not add `--stale` unless the user asks for broader cleanup or approves after seeing a dry run.
+- Do not add `--profile-cache` unless the user asks for stronger cleanup for a huge recent `target/`
+  or approves after seeing a dry run.
+- Explain that plain `cargo clean` removes the whole target directory, while scoped Cargo clean
+  options such as `--package`, `--profile`, `--release`, `--target`, `--target-dir`, and `--doc`
+  remove whole selected scopes; target-gc instead uses age/category-based cleanup.
 - Never override active Cargo/rustc detection with `--force-active` unless the user explicitly accepts
   the risk.
 
@@ -93,6 +98,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm
 cargo target-gc config
 ```
@@ -101,9 +107,10 @@ cargo target-gc config
 
 1. Confirm the current directory is the intended Cargo project or workspace.
 2. Run `cargo target-gc scan`.
-3. Summarize reclaimable bytes and retained/fresh cache.
+3. Summarize reclaimable bytes, profile cache bytes, and retained/fresh cache.
 4. If cleanup is worthwhile, run `cargo target-gc clean --dry-run`.
-5. Ask the user before running `cargo target-gc clean --confirm`.
+5. For very large recent targets, offer `cargo target-gc clean --dry-run --profile-cache`.
+6. Ask the user before running `cargo target-gc clean --confirm`.
 "#;
 
 pub fn parse_hosts(value: &str) -> Result<Vec<HostId>> {

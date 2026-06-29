@@ -33,6 +33,7 @@ cargo target-gc scan
 cargo target-gc scan --json
 cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
+cargo target-gc clean --dry-run --profile-cache
 cargo target-gc clean --confirm --stale
 cargo target-gc config
 cargo target-gc install-agent-skills
@@ -44,6 +45,12 @@ cargo target-gc install-agent-skills
 - `clean` يرفض العمل من دون خيار واحد فقط من `--dry-run` أو `--confirm`.
 - افتراضيا، يستعيد `clean` ذاكرة incremental القديمة فقط.
 - مع `--stale` يستعيد أيضا الآثار stale الأقدم من مدة الاحتفاظ.
+- `--profile-cache` وضع أقوى ويشمل أيضا incremental cache حديثة ومجلدات حديثة
+  مثل `deps` و `build` و `.fingerprint` و `examples`. افحص أولا باستخدام
+  `--dry-run`.
+- `cargo clean` بدون خيارات يحذف target كله، وخيارات Cargo مثل `--package`
+  و `--profile` و `--target` تنظف النطاق المحدد كله. target-gc ينظف حسب العمر
+  والفئة للحفاظ على قدر أكبر من build cache.
 - إذا بدا أن عملية Cargo/rustc نشطة تستخدم target المختار، يتم رفض الحذف المؤكد.
 - مسارات الحذف تبقى محصورة داخل جذر Cargo `target/` تم التحقق منه.
 
