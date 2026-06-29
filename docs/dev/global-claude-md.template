@@ -1,0 +1,33 @@
+## Plan & Task Numbering Convention
+
+### Workflow Gates (MUST follow)
+
+**BEFORE creating a plan doc** (`docs/implementation/*_PLAN.md`):
+1. `gh issue create -R {owner}/{repo} --label plan --title "{title}"` → get `P#N`
+2. Put `plan_id: P#N` in the plan doc frontmatter
+3. Run `/task-evaluate` on the plan before it is considered ready
+
+**BEFORE starting implementation of a plan phase or standalone task**:
+1. `gh issue create -R {owner}/{repo} --label task --title "{title}"` → get `T#N`
+2. Run `/task-execute` for the implementation — do NOT implement directly without the harness
+3. Reference `T#N` in commit messages: `feat(T#N): description`
+
+**BEFORE committing**:
+- Verify the commit message references a `T#N` or `P#N` (except trivial fixes)
+
+### Harness Skills (MUST use)
+
+- `/task-evaluate`: ANY plan, spec, or design doc before implementation begins.
+- `/task-execute`: ANY non-trivial implementation work (code, fixtures, config).
+
+**When to skip**: only truly trivial operations — single-line typo fixes, commit/push, file reads, or answering questions. If in doubt, use the harness.
+
+### Numbering Source
+
+GitHub Issues per repo. Plans = `P#N` (label `plan`); tasks = `T#N` (label `task`). Cross-repo ref `{repo}#N`; in-repo `#N`. Offline fallback: repo-local sequential numbers, resolved on merge.
+
+### Rules
+
+- Do NOT retroactively renumber existing plans/tasks — apply to new work only.
+- Plan and task numbers are per-repo (not globally unique).
+- Use GitHub Issue labels (`plan`, `task`) to distinguish P# from T#.
