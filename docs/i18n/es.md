@@ -5,6 +5,15 @@ cargo-target-gc es un recolector de basura para artefactos de Cargo en
 cuánto espacio se puede recuperar. Solo elimina artefactos de compilación
 antiguos y considerados seguros después de una confirmación explícita.
 
+## Por qué existe
+
+Los directorios Cargo `target/` siempre han crecido con el tiempo, pero el vibe
+coding y la programación agentic hacen que crezcan más rápido y sea más fácil no
+notarlo. Claude Code, Codex, Gemini CLI y otros agentes de código pueden compilar,
+probar, reintentar y cambiar de tarea muchas veces en una sola sesión.
+cargo-target-gc ofrece un flujo conservador: primero scan, luego vista previa
+con `--dry-run`, y eliminación solo después de confirmación explícita.
+
 ## Dónde ejecutarlo
 
 Ejecútalo en el mismo directorio del proyecto Cargo o workspace donde ejecutarías
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Reglas de seguridad

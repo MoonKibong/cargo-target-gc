@@ -5,6 +5,15 @@ phân tích thư mục `target/` của project hoặc workspace và báo cáo du
 thể thu hồi. Nó chỉ xóa artifact build cũ được xem là an toàn sau khi có xác
 nhận rõ ràng.
 
+## Vì sao công cụ này hữu ích
+
+Thư mục Cargo `target/` vốn đã tăng dần theo thời gian, nhưng vibe coding và
+agentic coding làm nó tăng nhanh hơn và dễ bị bỏ qua hơn. Claude Code, Codex,
+Gemini CLI và các agent lập trình khác có thể build, test, retry và đổi tác vụ
+nhiều lần trong một phiên. cargo-target-gc cung cấp quy trình dọn dẹp thận
+trọng: scan trước, xem trước bằng `--dry-run`, rồi chỉ xóa sau khi có xác nhận
+rõ ràng.
+
 ## Chạy ở đâu
 
 Chạy trong cùng thư mục project Cargo hoặc workspace nơi bạn thường chạy
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Quy tắc an toàn

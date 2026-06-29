@@ -5,6 +5,15 @@ Het analyseert de `target/`-map van een project of workspace en rapporteert
 hoeveel ruimte kan worden teruggewonnen. Het verwijdert oude build-artefacten
 die als veilig zijn beoordeeld alleen na expliciete bevestiging.
 
+## Waarom dit bestaat
+
+Cargo-`target/`-mappen groeiden altijd al na verloop van tijd, maar vibe coding
+en agentic coding maken die groei sneller en makkelijker te missen. Claude Code,
+Codex, Gemini CLI en andere coding agents kunnen in één sessie vaak builden,
+testen, opnieuw proberen en van taak wisselen. cargo-target-gc biedt een
+voorzichtige opruimlus: eerst scannen, bekijken met `--dry-run`, en alleen
+verwijderen na expliciete bevestiging.
+
 ## Waar uitvoeren
 
 Voer het uit in dezelfde Cargo-project- of workspace-map waar u `cargo build`
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Veiligheidsregels

@@ -5,6 +5,8 @@ multiple languages. The English README remains the source of truth for full
 details, but these files ship with the crate so users can quickly understand:
 
 - what cargo-target-gc scans;
+- why Cargo `target/` growth is more common during vibe coding and agentic
+  coding sessions;
 - where to run `cargo target-gc`;
 - when files can be deleted;
 - how to configure retention.

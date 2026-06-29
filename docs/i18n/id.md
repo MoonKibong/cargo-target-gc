@@ -5,6 +5,15 @@ ini menganalisis direktori `target/` milik proyek atau workspace dan melaporkan
 berapa banyak ruang yang bisa diklaim kembali. Artefak build lama yang dianggap
 aman hanya dihapus setelah konfirmasi eksplisit.
 
+## Mengapa ini ada
+
+Direktori Cargo `target/` memang selalu bertambah besar seiring waktu, tetapi
+vibe coding dan agentic coding membuat pertumbuhan itu lebih cepat dan lebih
+mudah luput dari perhatian. Claude Code, Codex, Gemini CLI, dan agen coding lain
+dapat berkali-kali build, test, retry, dan berpindah tugas dalam satu sesi.
+cargo-target-gc memberi alur pembersihan konservatif: scan dulu, lihat pratinjau
+dengan `--dry-run`, lalu hapus hanya setelah konfirmasi eksplisit.
+
 ## Tempat menjalankan
 
 Jalankan di direktori proyek Cargo atau workspace yang sama dengan tempat Anda
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Aturan keamanan

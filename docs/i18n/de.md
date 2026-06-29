@@ -5,6 +5,15 @@ Das Werkzeug analysiert das `target/`-Verzeichnis eines Projekts oder Workspace
 und meldet, wie viel Speicher zurückgewonnen werden kann. Es löscht alte,
 als sicher eingestufte Build-Artefakte nur nach ausdrücklicher Bestätigung.
 
+## Warum es das gibt
+
+Cargo-`target/`-Verzeichnisse wachsen schon immer mit der Zeit, aber Vibe Coding
+und agentisches Coding machen das Wachstum schneller und leichter zu übersehen.
+Claude Code, Codex, Gemini CLI und andere Coding-Agenten können in einer Sitzung
+viele Builds, Tests, Wiederholungen und Aufgabenwechsel ausführen.
+cargo-target-gc bietet dafür einen vorsichtigen Ablauf: zuerst scannen, mit
+`--dry-run` prüfen und erst nach ausdrücklicher Bestätigung löschen.
+
 ## Wo ausführen
 
 Führen Sie es im selben Cargo-Projekt- oder Workspace-Verzeichnis aus, in dem Sie
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Sicherheitsregeln

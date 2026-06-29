@@ -89,6 +89,7 @@ fn help_lists_subcommands() {
         .stdout(contains("scan"))
         .stdout(contains("clean"))
         .stdout(contains("config"))
+        .stdout(contains("install-agent-skills"))
         .stdout(contains("same directory where you would run `cargo build`"));
 }
 
@@ -199,6 +200,121 @@ fn clean_help_lists_flags() {
         .stdout(contains("--force-active"))
         .stdout(contains("--max-reclaim"))
         .stdout(contains("--stale"));
+}
+
+#[test]
+fn install_agent_skills_help_lists_host_flags() {
+    target_gc()
+        .args(["install-agent-skills", "--help"])
+        .assert()
+        .success()
+        .stdout(contains("--claude-skills-dir"))
+        .stdout(contains("--codex-skills-dir"))
+        .stdout(contains("--only"))
+        .stdout(contains("--all"))
+        .stdout(contains("--dry-run"))
+        .stdout(contains("--yes"));
+}
+
+#[test]
+fn install_agent_skills_dry_run_writes_nothing() {
+    let root = temp_project("skill-dry-run");
+    let claude = root.join("claude-skills");
+
+    target_gc()
+        .args([
+            "install-agent-skills",
+            "--only",
+            "claude",
+            "--dry-run",
+            "--claude-skills-dir",
+        ])
+        .arg(&claude)
+        .assert()
+        .success()
+        .stdout(contains("Would install Claude Code skill"));
+
+    assert!(!claude.join("cargo-target-gc/SKILL.md").exists());
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn install_agent_skills_writes_selected_hosts() {
+    let root = temp_project("skill-install");
+    let claude = root.join("claude-skills");
+    let codex = root.join("codex-skills");
+
+    target_gc()
+        .args([
+            "install-agent-skills",
+            "--only",
+            "claude,codex",
+            "--claude-skills-dir",
+        ])
+        .arg(&claude)
+        .args(["--codex-skills-dir"])
+        .arg(&codex)
+        .assert()
+        .success()
+        .stdout(contains("Installed Claude Code skill"))
+        .stdout(contains("Installed Codex skill"));
+
+    let claude_skill =
+        fs::read_to_string(claude.join("cargo-target-gc/SKILL.md")).expect("claude skill");
+    let codex_skill =
+        fs::read_to_string(codex.join("cargo-target-gc/SKILL.md")).expect("codex skill");
+    assert!(claude_skill.contains("name: cargo-target-gc"));
+    assert!(claude_skill.contains("cargo target-gc scan"));
+    assert!(claude_skill.contains("Do not run `cargo target-gc clean --confirm`"));
+    assert_eq!(claude_skill, codex_skill);
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn install_agent_skills_skip_existing_preserves_file() {
+    let root = temp_project("skill-skip-existing");
+    let claude = root.join("claude-skills");
+    let skill = claude.join("cargo-target-gc/SKILL.md");
+    fs::create_dir_all(skill.parent().expect("skill parent")).expect("parent");
+    fs::write(&skill, "custom skill").expect("write existing skill");
+
+    target_gc()
+        .args([
+            "install-agent-skills",
+            "--only",
+            "claude",
+            "--skip-existing",
+            "--claude-skills-dir",
+        ])
+        .arg(&claude)
+        .assert()
+        .success()
+        .stdout(contains("Keeping existing Claude Code skill"));
+
+    assert_eq!(fs::read_to_string(skill).expect("skill"), "custom skill");
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn cargo_subcommand_can_install_agent_skills() {
+    let root = temp_project("skill-cargo-subcommand");
+    let codex = root.join("codex-skills");
+
+    target_gc()
+        .args([
+            "target-gc",
+            "install-agent-skills",
+            "--only",
+            "codex",
+            "--codex-skills-dir",
+        ])
+        .arg(&codex)
+        .assert()
+        .success()
+        .stdout(contains("Installed Codex skill"));
+
+    assert!(codex.join("cargo-target-gc/SKILL.md").exists());
+    let _ = fs::remove_dir_all(&root);
 }
 
 #[test]

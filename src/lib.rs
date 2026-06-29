@@ -5,6 +5,7 @@
 //! to remove only reclaimable artifacts, and only with explicit confirmation.
 
 pub mod active;
+pub mod agent_skill;
 pub mod clean;
 pub mod cli;
 pub mod config;

@@ -65,6 +65,33 @@ pub enum Command {
         #[arg(long)]
         path: Option<PathBuf>,
     },
+    /// Install host-agent skills that teach agents how to safely run cargo-target-gc.
+    InstallAgentSkills {
+        /// Claude Code skills directory (defaults to ~/.claude/skills).
+        #[arg(long)]
+        claude_skills_dir: Option<PathBuf>,
+        /// Codex skills directory (defaults to ~/.codex/skills).
+        #[arg(long)]
+        codex_skills_dir: Option<PathBuf>,
+        /// Install for all supported hosts instead of only detected hosts.
+        #[arg(long, conflicts_with = "only")]
+        all: bool,
+        /// Install only for selected hosts, comma-separated: claude,codex.
+        #[arg(long, value_name = "HOSTS")]
+        only: Option<String>,
+        /// Approve all detected host installs without prompting.
+        #[arg(long)]
+        yes: bool,
+        /// Print planned installs without writing files.
+        #[arg(long)]
+        dry_run: bool,
+        /// Overwrite existing cargo-target-gc skills without prompting.
+        #[arg(long, conflicts_with = "skip_existing")]
+        force: bool,
+        /// Keep existing cargo-target-gc skills without prompting.
+        #[arg(long)]
+        skip_existing: bool,
+    },
 }
 
 /// Parse a byte size with optional binary suffix: B, KiB, MiB, GiB, TiB.

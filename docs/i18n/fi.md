@@ -5,6 +5,15 @@ projektin tai workspacen `target/`-hakemiston ja raportoi vapautettavissa olevan
 tilan. Se poistaa vanhoja ja turvallisiksi arvioituja build-artefakteja vain
 selkeän vahvistuksen jälkeen.
 
+## Miksi tämä on olemassa
+
+Cargo `target/` -hakemistot ovat aina kasvaneet ajan myötä, mutta vibe coding ja
+agenttipohjainen koodaus tekevät kasvusta nopeampaa ja helpommin huomaamatonta.
+Claude Code, Codex, Gemini CLI ja muut koodiagentit voivat yhdessä sessiossa
+rakentaa, testata, yrittää uudelleen ja vaihtaa tehtävää monta kertaa.
+cargo-target-gc tarjoaa varovaisen siivouspolun: ensin scan, sitten esikatselu
+`--dry-run`-valinnalla ja poisto vain selkeän vahvistuksen jälkeen.
+
 ## Missä suoritetaan
 
 Suorita työkalu samassa Cargo-projektin tai workspacen hakemistossa, jossa
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Turvasäännöt

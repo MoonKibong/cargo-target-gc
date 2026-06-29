@@ -11,6 +11,17 @@ creates no build artifacts. Run `cargo target-gc` from the same directory where
 you would run `cargo build`; it analyzes that Cargo project or workspace's conventional
 `target/` directory. Nothing is deleted unless you run `clean` with `--confirm`.
 
+## Why this exists
+
+Cargo `target/` directories have always grown over time, but vibe coding and
+agentic coding make the problem easier to miss and faster to hit. Tools like
+Claude Code, Codex, Gemini CLI, and other coding agents can build, test, retry,
+and switch tasks many times in one session. That is useful, but it can also
+leave gigabytes of incremental and stale build artifacts behind.
+
+cargo-target-gc gives agents and humans a conservative cleanup loop: scan first,
+preview with `--dry-run`, and delete only after explicit confirmation.
+
 ## Where to run cargo target-gc
 
 Use the same working directory you use for Cargo:
@@ -54,6 +65,8 @@ Estimated `reclaimable` space is `old incremental + stale`.
   is supplied.
 - **Configurable** — an optional `target-gc.toml` sets the retention window and can
   scope analysis to a specific crate path.
+- **Agent-friendly** — `install-agent-skills` installs host-agent skills for
+  detected Claude Code and Codex setups, with per-host consent by default.
 - **Normalized output** — human-readable summary by default, or `--json` for
   machine-readable reports (JSON carries raw byte counts).
 
@@ -64,6 +77,7 @@ cargo target-gc scan  [--path <DIR>] [--json]                      # Analyze tar
 cargo target-gc clean [--path <DIR>] [--json] --dry-run [--stale]  # Preview removals (deletes nothing)
 cargo target-gc clean [--path <DIR>] [--json] --confirm [--stale] [--max-reclaim <SIZE>]
 cargo target-gc config [--path <DIR>]                              # Print the effective configuration
+cargo target-gc install-agent-skills [--all | --only claude,codex]  # Install Claude Code/Codex skills
 cargo target-gc --help                                             # Show usage
 ```
 
@@ -79,6 +93,21 @@ risk.
 
 If `scan` finds no `target/` directory, run `cargo target-gc` from the Cargo
 project or workspace root where `cargo build` creates `target/`.
+
+## Agent Skills
+
+Agentic coding sessions can grow Cargo `target/` usage quickly because agents
+build, test, and retry often. Install host-agent skills so agents know to scan
+first, prefer dry runs, and ask before confirmed cleanup:
+
+```bash
+cargo target-gc install-agent-skills
+```
+
+By default, the installer detects supported local hosts and asks before writing
+each skill. Use `--all` to install for all supported hosts, or `--only
+claude,codex` to select hosts explicitly. Existing skills are not overwritten
+without `--force`; use `--skip-existing` for non-interactive installs.
 
 ## Install
 

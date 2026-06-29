@@ -5,6 +5,15 @@ cargo-target-gc Cargo के `target/` आर्टिफैक्ट के ल
 कि कितनी जगह वापस पाई जा सकती है। यह पुराने और सुरक्षित माने गए build
 आर्टिफैक्ट केवल स्पष्ट पुष्टि के बाद हटाता है।
 
+## यह क्यों उपयोगी है
+
+Cargo की `target/` डायरेक्टरी समय के साथ पहले भी बढ़ती थी, लेकिन vibe coding और
+agentic coding में यह बढ़ोतरी तेज और कम दिखाई देने वाली हो जाती है। Claude Code,
+Codex, Gemini CLI और दूसरे coding agents एक ही session में कई बार build, test,
+retry और task switch कर सकते हैं। cargo-target-gc एक conservative cleanup flow
+देता है: पहले scan करें, `--dry-run` से preview देखें, और केवल स्पष्ट पुष्टि के
+बाद delete करें।
+
 ## कहाँ चलाएँ
 
 इसे उसी Cargo प्रोजेक्ट या workspace डायरेक्टरी में चलाएँ जहाँ आप `cargo build`
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## सुरक्षा नियम

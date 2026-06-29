@@ -4,6 +4,14 @@ cargo-target-gc هو جامع مخلفات لآثار البناء الخاصة 
 يفحص مجلد `target/` في المشروع أو workspace ويعرض المساحة التي يمكن استعادتها.
 لا يحذف آثار البناء القديمة التي يعتبرها آمنة إلا بعد تأكيد صريح.
 
+## لماذا توجد هذه الأداة
+
+مجلدات Cargo `target/` كانت تكبر مع الوقت دائما، لكن vibe coding و agentic
+coding يجعلان النمو أسرع وأسهل في أن يمر من دون ملاحظة. أدوات مثل Claude Code
+و Codex و Gemini CLI وغيرها من وكلاء البرمجة قد تشغل build و test و retry وتبدل
+المهام مرات كثيرة في جلسة واحدة. cargo-target-gc يوفر مسارا محافظا للتنظيف:
+scan أولا، ثم معاينة باستخدام `--dry-run`، ثم الحذف فقط بعد تأكيد صريح.
+
 ## مكان التشغيل
 
 شغله في نفس مجلد مشروع Cargo أو workspace الذي تشغل منه `cargo build`.
@@ -27,6 +35,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## قواعد الأمان

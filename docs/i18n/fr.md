@@ -5,6 +5,15 @@ Il analyse le répertoire `target/` d'un projet ou d'un workspace et indique
 l'espace récupérable. Il supprime des artefacts de build anciens et sûrs
 uniquement après confirmation explicite.
 
+## Pourquoi cet outil existe
+
+Les répertoires Cargo `target/` ont toujours tendance à grossir, mais le vibe
+coding et le codage agentique rendent cette croissance plus rapide et moins
+visible. Claude Code, Codex, Gemini CLI et d'autres agents peuvent compiler,
+tester, réessayer et changer de tâche de nombreuses fois dans une même session.
+cargo-target-gc fournit une boucle prudente: analyser d'abord, prévisualiser
+avec `--dry-run`, puis supprimer seulement après confirmation explicite.
+
 ## Où l'exécuter
 
 Exécutez-le dans le même répertoire Cargo que celui où vous lanceriez
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Règles de sécurité

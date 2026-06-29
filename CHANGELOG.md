@@ -7,6 +7,17 @@ once public releases begin.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-30
+
+### Added
+
+- `install-agent-skills` command for installing cargo-target-gc skills into
+  Claude Code and Codex host-agent skill directories.
+- Agent skill guidance that scans first, prefers dry runs, and requires explicit
+  user approval before confirmed cleanup.
+- README and localized quick-start motivation for vibe coding and agentic coding
+  workflows that grow Cargo `target/` directories quickly.
+
 ## [0.1.0] - 2026-06-30
 
 ### Added

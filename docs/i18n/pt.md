@@ -5,6 +5,15 @@ analisa o diretório `target/` de um projeto ou workspace e informa quanto espa�
 pode ser recuperado. Ele só remove artefatos de build antigos e considerados
 seguros depois de confirmação explícita.
 
+## Por que isto existe
+
+Diretórios Cargo `target/` sempre cresceram com o tempo, mas vibe coding e
+programação agentic tornam esse crescimento mais rápido e fácil de ignorar.
+Claude Code, Codex, Gemini CLI e outros agentes de código podem compilar,
+testar, tentar novamente e trocar de tarefa muitas vezes em uma sessão.
+cargo-target-gc oferece um fluxo conservador: primeiro scan, depois prévia com
+`--dry-run`, e remoção somente após confirmação explícita.
+
 ## Onde executar
 
 Execute no mesmo diretório do projeto Cargo ou workspace em que você rodaria
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Regras de segurança

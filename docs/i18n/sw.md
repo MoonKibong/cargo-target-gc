@@ -5,6 +5,15 @@ Inachambua saraka ya `target/` ya mradi au workspace na kuripoti nafasi
 inayoweza kurejeshwa. Hufuta artefact za build za zamani na zilizo salama tu
 baada ya uthibitisho wa wazi.
 
+## Kwa nini ipo
+
+Saraka za Cargo `target/` zimekuwa zikikua kadiri muda unavyopita, lakini vibe
+coding na agentic coding hufanya zikue haraka zaidi na iwe rahisi kutoona. Claude
+Code, Codex, Gemini CLI na mawakala wengine wa coding wanaweza kujenga, kupima,
+kurudia na kubadili kazi mara nyingi katika session moja. cargo-target-gc hutoa
+mtiririko wa tahadhari: scan kwanza, hakiki kwa `--dry-run`, kisha futa tu baada
+ya uthibitisho wa wazi.
+
 ## Mahali pa kuendesha
 
 Iendeshe kwenye saraka ile ile ya mradi wa Cargo au workspace ambapo ungeendesha
@@ -29,6 +38,7 @@ cargo target-gc clean --dry-run
 cargo target-gc clean --dry-run --stale
 cargo target-gc clean --confirm --stale
 cargo target-gc config
+cargo target-gc install-agent-skills
 ```
 
 ## Kanuni za usalama

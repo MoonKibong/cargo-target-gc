@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 
+use cargo_target_gc::agent_skill::{self, InstallOptions, Selection, SkillCollision};
 use cargo_target_gc::clean::{self, CleanPlan};
 use cargo_target_gc::cli::{Cli, Command};
 use cargo_target_gc::report::human;
@@ -33,6 +34,43 @@ fn main() -> Result<()> {
             stale,
         ),
         Command::Config { path } => run_config(path),
+        Command::InstallAgentSkills {
+            claude_skills_dir,
+            codex_skills_dir,
+            all,
+            only,
+            yes,
+            dry_run,
+            force,
+            skip_existing,
+        } => {
+            let hosts = match only {
+                Some(raw) => agent_skill::parse_hosts(&raw)?,
+                None => Vec::new(),
+            };
+            let collision = if force {
+                SkillCollision::Overwrite
+            } else if skip_existing {
+                SkillCollision::Skip
+            } else {
+                SkillCollision::Prompt
+            };
+            let selection = if all {
+                Selection::All
+            } else {
+                Selection::Detected
+            };
+            let opts = InstallOptions {
+                claude_skills_dir,
+                codex_skills_dir,
+                only: hosts,
+                selection,
+                collision,
+                dry_run,
+                yes,
+            };
+            agent_skill::install(&opts)
+        }
     }
 }
 
