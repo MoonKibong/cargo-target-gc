@@ -12,6 +12,7 @@ updated:
 | Open source readiness | [oss/OPEN_SOURCE_READINESS.md](oss/OPEN_SOURCE_READINESS.md) |
 | Release process | [../RELEASE.md](../RELEASE.md) |
 | Localized quick starts | [i18n/](i18n/) |
+| Distribution and discoverability | [distribution/DISCOVERABILITY.md](distribution/DISCOVERABILITY.md) |
 | Implementation plans | [implementation/](implementation/) |
 | Reusable patterns | [patterns/](patterns/) |
 | Context engineering | [dev/](dev/) |

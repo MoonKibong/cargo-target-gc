@@ -7,6 +7,21 @@ once public releases begin.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-30
+
+### Changed
+
+- Repositioned the project for discoverability: cargo-target-gc complements
+  scoped `cargo clean` by adding age/category-based cleanup, scan-first
+  reporting, and warm-cache preservation by default.
+- Improved crates.io search metadata with cleanup/cache-oriented keywords.
+- Added README discoverability sections comparing cargo-target-gc with scoped
+  `cargo clean`, showing anonymized reclaimable-space examples, and documenting
+  faster install options.
+- Added maintainer-facing announcement and curated-list outreach materials.
+- Added cargo-dist release automation for GitHub release archives and
+  shell/PowerShell installers.
+
 ## [0.1.2] - 2026-06-30
 
 ### Added

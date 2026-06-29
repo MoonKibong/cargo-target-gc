@@ -58,6 +58,11 @@ cargo publish
 
 6. Push the branch and tag, then create a GitHub release from the changelog.
 
+Pushing a version tag also triggers the generated cargo-dist workflow in
+`.github/workflows/release.yml`. That workflow builds release archives and shell
+/ PowerShell installers for GitHub Releases. If the workflow fails, keep the
+crates.io release intact and fix the binary-release workflow in a patch release.
+
 ## Rollback
 
 If a release has a cleanup-safety bug, yank the crates.io version and publish a

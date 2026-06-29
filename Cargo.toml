@@ -1,6 +1,6 @@
 [package]
 name = "cargo-target-gc"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "Cargo target-artifact garbage collector: analyze and reclaim target/ build artifacts"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/MoonKibong/cargo-target-gc"
 homepage = "https://github.com/MoonKibong/cargo-target-gc"
 documentation = "https://docs.rs/cargo-target-gc"
-keywords = ["rust", "cargo", "target", "cleanup", "gc"]
+keywords = ["cargo", "target", "clean", "cleanup", "cache"]
 categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
@@ -29,3 +29,8 @@ toml = "0.8"
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
