@@ -1,16 +1,22 @@
 [package]
-name = "derust"
+name = "cargo-target-gc"
 version = "0.1.0"
 edition = "2021"
 description = "Cargo target-artifact garbage collector: analyze and reclaim target/ build artifacts"
-license = "MIT"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/MoonKibong/cargo-target-gc"
+homepage = "https://github.com/MoonKibong/cargo-target-gc"
+documentation = "https://docs.rs/cargo-target-gc"
+keywords = ["rust", "cargo", "target", "cleanup", "gc"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
-name = "derust"
+name = "cargo-target-gc"
 path = "src/main.rs"
 
 [lib]
-name = "derust"
+name = "cargo_target_gc"
 path = "src/lib.rs"
 
 [dependencies]

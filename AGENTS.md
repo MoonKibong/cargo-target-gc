@@ -1,8 +1,10 @@
 # Repository Guidelines
 
-## What derust Is
+## What cargo-target-gc Is
 
-derust is a Cargo **target-artifact garbage collector**: it analyzes `target/` directories, reports **reclaimable** space, and (only with explicit confirmation) cleans safe/stale build artifacts while preserving build-hot ones. `scan` is a pure, read-only filesystem analysis — it never invokes cargo and creates no build artifacts; `clean` is the only mutating command and refuses without `--dry-run`/`--confirm`. Centralize the `target/` walk in `src/target.rs`; `clean` reuses `target::analyze`. No `unwrap()`/`expect()` outside tests.
+cargo-target-gc is a Cargo **target-artifact garbage collector**: it analyzes `target/` directories, reports **reclaimable** space, and (only with explicit confirmation) cleans safe/stale build artifacts while preserving build-hot ones. Recent incremental cache is retained for `incremental_retention_hours` before it becomes reclaimable. `scan` is a pure, read-only filesystem analysis — it never invokes cargo and creates no build artifacts; `clean` is the only mutating command and refuses without `--dry-run`/`--confirm` or when an active Cargo/rustc process appears to be using the target root.
+
+Run `cargo target-gc` from the same directory where `cargo build` would be run. If a wrapper such as `make` builds a nested Cargo project, users should `cd` into that Cargo project/workspace before running `cargo target-gc`; cargo-target-gc must not guess hidden wrapper targets. Centralize the `target/` walk in `src/target.rs`; `clean` reuses `target::analyze`. No `unwrap()`/`expect()` outside tests.
 
 ## Project Structure & Module Organization
 

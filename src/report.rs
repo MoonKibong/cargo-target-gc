@@ -14,8 +14,10 @@ pub struct TargetRootReport {
     pub path: String,
     /// Total bytes across every category.
     pub total_bytes: u64,
-    /// Bytes in `incremental/` subtrees.
+    /// Bytes in old `incremental/` subtrees eligible for cleanup.
     pub incremental_bytes: u64,
+    /// Bytes in recent `incremental/` subtrees retained as warm cache.
+    pub fresh_incremental_bytes: u64,
     /// Bytes in stale profile artifacts.
     pub stale_bytes: u64,
     /// Bytes in retained (build-hot) artifacts.
@@ -50,15 +52,32 @@ impl ScanReport {
     /// Render a normalized, human-readable summary with humanized sizes.
     pub fn render_text(&self) -> String {
         let mut out = String::new();
-        let _ = writeln!(out, "derust scan: {}", self.root);
+        let _ = writeln!(out, "cargo target-gc scan: {}", self.root);
         if self.roots.is_empty() {
             let _ = writeln!(out, "  no target/ directories found — nothing to reclaim");
+            let _ = writeln!(
+                out,
+                "  run cargo target-gc from the same directory where you run `cargo build`"
+            );
+            let _ = writeln!(
+                out,
+                "  if a wrapper such as `make` builds a nested Cargo project, cd there first"
+            );
             return out;
         }
         for root in &self.roots {
             let _ = writeln!(out, "  target: {}", root.path);
             let _ = writeln!(out, "    total:       {}", human(root.total_bytes));
-            let _ = writeln!(out, "    incremental: {}", human(root.incremental_bytes));
+            let _ = writeln!(
+                out,
+                "    old incremental:   {}  reclaimable",
+                human(root.incremental_bytes)
+            );
+            let _ = writeln!(
+                out,
+                "    fresh incremental: {}  retained for edit-build speed",
+                human(root.fresh_incremental_bytes)
+            );
             let _ = writeln!(out, "    stale:       {}", human(root.stale_bytes));
             let _ = writeln!(out, "    retained:    {}", human(root.retained_bytes));
             let _ = writeln!(out, "    reclaimable: {}", human(root.reclaimable_bytes));
@@ -104,15 +123,16 @@ mod tests {
             root: "/proj".into(),
             roots: vec![TargetRootReport {
                 path: "/proj/target".into(),
-                total_bytes: 3_000_000,
+                total_bytes: 3_250_000,
                 incremental_bytes: 1_000_000,
+                fresh_incremental_bytes: 250_000,
                 stale_bytes: 500_000,
-                retained_bytes: 1_500_000,
+                retained_bytes: 1_750_000,
                 reclaimable_bytes: 1_500_000,
             }],
             summary: Summary {
                 roots: 1,
-                total_bytes: 3_000_000,
+                total_bytes: 3_250_000,
                 reclaimable_bytes: 1_500_000,
             },
         }
@@ -130,6 +150,8 @@ mod tests {
     fn text_lists_roots_and_reclaimable() {
         let text = sample().render_text();
         assert!(text.contains("/proj/target"));
+        assert!(text.contains("fresh incremental:"));
+        assert!(text.contains("old incremental:"));
         assert!(text.contains("reclaimable:"));
         assert!(text.contains("summary:"));
     }

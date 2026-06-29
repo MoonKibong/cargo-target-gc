@@ -1,13 +1,13 @@
 ---
-order: derust-target-gc
+order: cargo-target-gc
 updated: 2026-06-29T09:01:33Z
 status: implemented
 ---
 
-# Plan: derust product pivot → Cargo target artifact GC
+# Plan: cargo-target-gc product pivot → Cargo target artifact GC
 
 ## Context & recognition
-derust is being repurposed from a "read-only Rust health-check scanner" (runs cargo
+cargo-target-gc is being repurposed from a "read-only Rust health-check scanner" (runs cargo
 check/test/fmt/clippy via probe.rs + Sandbox) into a **Cargo target-artifact garbage
 collector**: it analyzes `target/` directories, reports reclaimable space, and can
 clean safe/stale artifacts while preserving build-hot artifacts. `scan` must become a
@@ -32,7 +32,7 @@ becomes obsolete. config.rs/report.rs/scan.rs/cli.rs/main.rs must be repurposed.
 - Progress → stderr; final report → stdout (text) or stdout JSON with `--json`.
 
 ## T1 — Documentation & spec pivot (durable docs)
-Files: NEW `docs/implementation/DERUST_TARGET_GC_PLAN.md`; update `README.md`,
+Files: NEW `docs/implementation/CARGO_TARGET_GC_PLAN.md`; update `README.md`,
 `CLAUDE.md`, `AGENTS.md`, and `Cargo.toml` `description`.
 - Plan doc records the domain model above + CLI semantics: `scan` (read-only analysis),
   `clean --dry-run` (preview), `clean --confirm` (execute, safe categories only),
@@ -92,7 +92,7 @@ Acceptance: all four commands exit 0; `grep -rn "unwrap()\|expect(" src | grep -
 shows none in production paths; doc CLI surface == actual `--help`.
 
 ## Dependency order
-T1 → T2 → T3 → T4 (single repo: /Users/kibong/development/derust). T2 must land atomically
+T1 → T2 → T3 → T4 (single repo: /repo/root). T2 must land atomically
 (removing probe.rs while rewriting scan/config/report) so the tree always compiles. T3
 builds on T2's `target.rs`. T4 is the final gate.
 

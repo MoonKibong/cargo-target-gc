@@ -10,6 +10,7 @@ use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::active::{self, ActiveBuild};
 use crate::config::{self, ConfigError};
 use crate::discovery::{self, DiscoveryError};
 use crate::target::{self, Category, TargetError};
@@ -34,6 +35,8 @@ pub struct CleanPlan {
     pub roots: Vec<PathBuf>,
     /// Artifacts that would be removed.
     pub removals: Vec<Removal>,
+    /// Optional maximum bytes allowed for a confirmed clean.
+    pub max_reclaim_bytes: Option<u64>,
 }
 
 impl CleanPlan {
@@ -56,6 +59,10 @@ pub enum CleanError {
     Unsafe { path: PathBuf },
     /// A removal failed during execution.
     Remove { path: PathBuf, source: io::Error },
+    /// A cargo/rustc process appears to be using a target root.
+    ActiveBuild { process: ActiveBuild },
+    /// Planned cleanup exceeds the configured or requested safety limit.
+    ReclaimLimit { planned: u64, limit: u64 },
 }
 
 impl fmt::Display for CleanError {
@@ -72,6 +79,18 @@ impl fmt::Display for CleanError {
             CleanError::Remove { path, source } => {
                 write!(f, "failed to remove {}: {source}", path.display())
             }
+            CleanError::ActiveBuild { process } => write!(
+                f,
+                "refusing to clean while an active build is detected: {process}. \
+                 Stop the build or rerun with --force-active"
+            ),
+            CleanError::ReclaimLimit { planned, limit } => write!(
+                f,
+                "refusing to reclaim {} because it exceeds the limit {}; \
+                 rerun with a larger --max-reclaim value if this is intentional",
+                crate::report::human(*planned),
+                crate::report::human(*limit)
+            ),
         }
     }
 }
@@ -108,7 +127,7 @@ pub fn plan(path: &Path, include_stale: bool) -> Result<CleanPlan, CleanError> {
 
     let mut removals = Vec::new();
     for root in &roots {
-        let analysis = target::analyze(root, cfg.retention_days)?;
+        let analysis = target::analyze(root, cfg.retention_days, cfg.incremental_retention_hours)?;
         for artifact in analysis.reclaimable(include_stale) {
             guard_inside_root(&artifact.path, root)?;
             removals.push(Removal {
@@ -123,6 +142,7 @@ pub fn plan(path: &Path, include_stale: bool) -> Result<CleanPlan, CleanError> {
         project_root: project.root,
         roots,
         removals,
+        max_reclaim_bytes: cfg.max_reclaim_bytes,
     })
 }
 
@@ -147,7 +167,24 @@ fn guard_inside_root(path: &Path, root: &Path) -> Result<(), CleanError> {
 ///
 /// Each path is re-guarded immediately before removal so a stale plan cannot
 /// delete outside a validated target root.
-pub fn execute(plan: &CleanPlan) -> Result<u64, CleanError> {
+pub fn execute(
+    plan: &CleanPlan,
+    force_active: bool,
+    max_reclaim_override: Option<u64>,
+) -> Result<u64, CleanError> {
+    let planned = plan.total_bytes();
+    if let Some(limit) = max_reclaim_override.or(plan.max_reclaim_bytes) {
+        if planned > limit {
+            return Err(CleanError::ReclaimLimit { planned, limit });
+        }
+    }
+
+    if !force_active {
+        if let Some(process) = active::detect(&plan.roots).into_iter().next() {
+            return Err(CleanError::ActiveBuild { process });
+        }
+    }
+
     let mut freed = 0u64;
     for removal in &plan.removals {
         let root = plan
@@ -184,44 +221,14 @@ fn remove(path: &Path) -> Result<(), CleanError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
-    use std::time::{Duration, SystemTime};
-
-    fn temp_dir(tag: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let dir =
-            std::env::temp_dir().join(format!("derust-clean-{tag}-{}-{nanos}", std::process::id()));
-        fs::create_dir_all(&dir).expect("temp dir");
-        dir
-    }
-
-    fn write_aged(path: &Path, len: usize, age_days: u64) {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).expect("parents");
-        }
-        fs::write(path, vec![b'x'; len]).expect("write");
-        let when = SystemTime::now()
-            .checked_sub(Duration::from_secs(age_days * 86_400))
-            .expect("aged");
-        File::options()
-            .write(true)
-            .open(path)
-            .expect("open")
-            .set_modified(when)
-            .expect("mtime");
-    }
+    use crate::test_support::{cargo_project, write_aged};
+    use std::fs;
 
     fn project(tag: &str) -> PathBuf {
-        let root = temp_dir(tag);
-        fs::write(root.join("Cargo.toml"), "[package]\nname=\"x\"\n").expect("manifest");
+        let root = cargo_project("clean", tag);
         let target = root.join("target");
-        fs::create_dir_all(&target).expect("target");
-        fs::write(target.join("CACHEDIR.TAG"), "Signature").expect("tag");
         write_aged(&target.join("debug/deps/lib.rlib"), 1000, 0); // retained
-        write_aged(&target.join("debug/incremental/seg/x.o"), 500, 0); // incremental
+        write_aged(&target.join("debug/incremental/seg/x.o"), 500, 2); // old incremental
         write_aged(&target.join("release/deps/lib.rlib"), 2000, 100); // stale
         root
     }
@@ -251,7 +258,7 @@ mod tests {
         let root = project("exec");
         let target = root.join("target");
         let plan = plan(&root, true).expect("plan");
-        let freed = execute(&plan).expect("execute");
+        let freed = execute(&plan, false, None).expect("execute");
         assert_eq!(freed, 500 + 2000);
         // Retained debug/deps survives; reclaimable artifacts are gone.
         assert!(target.join("debug/deps/lib.rlib").exists());
@@ -259,6 +266,22 @@ mod tests {
         assert!(!target.join("release/deps/lib.rlib").exists());
         // The target root and its tag are never removed.
         assert!(target.join("CACHEDIR.TAG").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn execute_refuses_above_reclaim_limit() {
+        let root = project("limit");
+        let plan = plan(&root, true).expect("plan");
+        let result = execute(&plan, false, Some(100));
+        assert!(matches!(
+            result,
+            Err(CleanError::ReclaimLimit {
+                planned: 2500,
+                limit: 100
+            })
+        ));
+        assert!(root.join("target/debug/incremental").exists());
         let _ = fs::remove_dir_all(&root);
     }
 

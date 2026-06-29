@@ -13,7 +13,7 @@ updated: 2026-06-29T06:28:34Z
 # Plan: agents-md-guide — Repository Contributor Guide (AGENTS.md)
 
 ## Context & Decisive Finding
-AGENTS.md ALREADY EXISTS at repo root (`/Users/kibong/development/derust/AGENTS.md`, 2.7K, 42 lines), titled "Repository Guidelines". The order's create action is GUARDED: "if it exists, do not overwrite or modify it." The guard condition is met, so the executor must NOT create, overwrite, or edit AGENTS.md. The existing file already covers all six required topics: Project Structure & Module Organization; Build/Test/Dev Commands; Coding Style & Naming; Testing Guidelines; Commit & Pull Request Guidelines; and Agent-Specific Instructions.
+AGENTS.md ALREADY EXISTS at repo root (`/repo/root/AGENTS.md`, 2.7K, 42 lines), titled "Repository Guidelines". The order's create action is GUARDED: "if it exists, do not overwrite or modify it." The guard condition is met, so the executor must NOT create, overwrite, or edit AGENTS.md. The existing file already covers all six required topics: Project Structure & Module Organization; Build/Test/Dev Commands; Coding Style & Naming; Testing Guidelines; Commit & Pull Request Guidelines; and Agent-Specific Instructions.
 
 This plan is therefore a VERIFICATION plan that confirms the guard is honored and the existing guide is adequate — no file mutation occurs.
 
@@ -21,7 +21,7 @@ This plan is therefore a VERIFICATION plan that confirms the guard is honored an
 No quality gates triggered: no production file >1000 lines, no code duplication introduced (no code changes at all).
 
 ## Affected repositories & dependency order
-Single repo: `/Users/kibong/development/derust`. Tasks run sequentially (T1 -> T2 -> T3); each depends on the prior.
+Single repo: `/repo/root`. Tasks run sequentially (T1 -> T2 -> T3); each depends on the prior.
 
 ## Task T1 — Confirm guard condition (AGENTS.md exists -> do not modify)
 Capture a baseline checksum of `AGENTS.md` so any later mutation is detectable.

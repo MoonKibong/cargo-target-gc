@@ -1,0 +1,4 @@
+# cargo-target-gc fixture config: a non-default retention window.
+retention_days = 30
+incremental_retention_hours = 12
+max_reclaim_bytes = 1048576

@@ -2,7 +2,7 @@
 //!
 //! This module NEVER invokes cargo and NEVER writes to disk. It walks a
 //! validated `target/` root with `symlink_metadata` (no symlink following),
-//! sums artifact sizes, and splits them into three categories so that `scan`
+//! sums artifact sizes, and splits them into artifact categories so that `scan`
 //! can report reclaimable space and `clean` can reuse the exact same walk to
 //! decide what is safe to remove.
 
@@ -13,11 +13,16 @@ use std::time::{Duration, SystemTime};
 
 use crate::discovery::Project;
 
+const SECONDS_PER_DAY: u64 = 86_400;
+const SECONDS_PER_HOUR: u64 = 3_600;
+
 /// How a single artifact group is classified by the read-only walk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Category {
-    /// `incremental/` subtrees — always reclaimable (cargo regenerates them).
+    /// Old `incremental/` subtrees — reclaimable after the warm-cache window.
     Incremental,
+    /// Recent `incremental/` subtrees — retained for edit-build speed.
+    FreshIncremental,
     /// Profile artifacts whose newest mtime is older than the retention window.
     Stale,
     /// Build-hot artifacts within the retention window — never reclaimable.
@@ -29,14 +34,10 @@ impl Category {
     pub fn name(self) -> &'static str {
         match self {
             Category::Incremental => "incremental",
+            Category::FreshIncremental => "fresh_incremental",
             Category::Stale => "stale",
             Category::Retained => "retained",
         }
-    }
-
-    /// Whether artifacts in this category may be removed by `clean`.
-    pub fn is_reclaimable(self) -> bool {
-        matches!(self, Category::Incremental | Category::Stale)
     }
 }
 
@@ -58,8 +59,10 @@ pub struct RootAnalysis {
     pub root: PathBuf,
     /// Total bytes across every category.
     pub total_bytes: u64,
-    /// Bytes in `incremental/` subtrees.
+    /// Bytes in old `incremental/` subtrees eligible for cleanup.
     pub incremental_bytes: u64,
+    /// Bytes in fresh `incremental/` subtrees retained as warm cache.
+    pub fresh_incremental_bytes: u64,
     /// Bytes in stale profile artifacts.
     pub stale_bytes: u64,
     /// Bytes in retained (build-hot) artifacts.
@@ -80,8 +83,26 @@ impl RootAnalysis {
         self.artifacts.iter().filter(move |a| match a.category {
             Category::Incremental => true,
             Category::Stale => include_stale,
-            Category::Retained => false,
+            Category::FreshIncremental | Category::Retained => false,
         })
+    }
+
+    fn push(&mut self, path: PathBuf, category: Category, bytes: u64) {
+        self.total_bytes += bytes;
+        match category {
+            Category::Incremental => self.incremental_bytes += bytes,
+            Category::FreshIncremental => {
+                self.fresh_incremental_bytes += bytes;
+                self.retained_bytes += bytes;
+            }
+            Category::Stale => self.stale_bytes += bytes,
+            Category::Retained => self.retained_bytes += bytes,
+        }
+        self.artifacts.push(Artifact {
+            path,
+            category,
+            bytes,
+        });
     }
 }
 
@@ -138,7 +159,7 @@ pub fn is_target_dir(path: &Path) -> bool {
 /// `<crate>/target`. When `crate_path` is set, scoping is limited to that
 /// crate's target. A `crate_path` that is absolute or escapes the project root
 /// via parent traversal is rejected with [`TargetError::UnsafeCratePath`] so a
-/// project's `derust.toml` can never point scan/clean outside its own tree.
+/// project's `target-gc.toml` can never point scan/clean outside its own tree.
 /// Non-existent or invalid candidates are dropped.
 pub fn locate_roots(
     project: &Project,
@@ -208,19 +229,23 @@ fn contained_crate_dir(root: &Path, rel: &Path) -> Option<PathBuf> {
 
 /// Walk a validated target `root` read-only and classify its artifacts.
 ///
-/// Artifacts older than `retention_days` (by newest mtime within their profile)
-/// are `Stale`; `incremental/` subtrees are always `Incremental`; everything
-/// else is `Retained`. The walk uses `symlink_metadata` and never follows
-/// symlinked directories.
-pub fn analyze(root: &Path, retention_days: u64) -> Result<RootAnalysis, TargetError> {
-    let cutoff = SystemTime::now()
-        .checked_sub(Duration::from_secs(retention_days.saturating_mul(86_400)))
-        .unwrap_or(SystemTime::UNIX_EPOCH);
+/// Profile artifacts older than `retention_days` (by newest mtime within their
+/// profile) are `Stale`; `incremental/` subtrees are `Incremental` only after
+/// `incremental_retention_hours`, otherwise retained as warm build cache.
+/// The walk uses `symlink_metadata` and never follows symlinked directories.
+pub fn analyze(
+    root: &Path,
+    retention_days: u64,
+    incremental_retention_hours: u64,
+) -> Result<RootAnalysis, TargetError> {
+    let profile_cutoff = cutoff(retention_days, SECONDS_PER_DAY);
+    let incremental_cutoff = cutoff(incremental_retention_hours, SECONDS_PER_HOUR);
 
     let mut analysis = RootAnalysis {
         root: root.to_path_buf(),
         total_bytes: 0,
         incremental_bytes: 0,
+        fresh_incremental_bytes: 0,
         stale_bytes: 0,
         retained_bytes: 0,
         artifacts: Vec::new(),
@@ -238,18 +263,11 @@ pub fn analyze(root: &Path, retention_days: u64) -> Result<RootAnalysis, TargetE
         if meta.is_file() {
             // Top-level bookkeeping files (CACHEDIR.TAG, .rustc_info.json) are
             // tiny and load-bearing; always retain them.
-            let bytes = meta.len();
-            analysis.retained_bytes += bytes;
-            analysis.total_bytes += bytes;
-            analysis.artifacts.push(Artifact {
-                path,
-                category: Category::Retained,
-                bytes,
-            });
+            analysis.push(path, Category::Retained, meta.len());
             continue;
         }
         if meta.is_dir() {
-            analyze_profile(&path, cutoff, &mut analysis)?;
+            analyze_profile(&path, profile_cutoff, incremental_cutoff, &mut analysis)?;
         }
     }
 
@@ -258,12 +276,13 @@ pub fn analyze(root: &Path, retention_days: u64) -> Result<RootAnalysis, TargetE
 
 /// Classify one top-level profile directory (e.g. `target/debug`).
 ///
-/// `incremental/` is split out as its own always-reclaimable artifact; the rest
-/// of the profile's children share a single staleness decision based on the
-/// newest mtime among them, so a profile is reclaimed as a coherent unit.
+/// `incremental/` is split out as its own warm-cache-aware artifact; the rest of
+/// the profile's children share a single staleness decision based on the newest
+/// mtime among them, so a profile is reclaimed as a coherent unit.
 fn analyze_profile(
     profile: &Path,
-    cutoff: SystemTime,
+    profile_cutoff: SystemTime,
+    incremental_cutoff: SystemTime,
     analysis: &mut RootAnalysis,
 ) -> Result<(), TargetError> {
     let mut rest: Vec<(PathBuf, u64)> = Vec::new();
@@ -280,13 +299,12 @@ fn analyze_profile(
         }
         let (bytes, newest) = size_and_mtime(&path, &meta);
         if meta.is_dir() && path.file_name().and_then(|n| n.to_str()) == Some("incremental") {
-            analysis.incremental_bytes += bytes;
-            analysis.total_bytes += bytes;
-            analysis.artifacts.push(Artifact {
-                path,
-                category: Category::Incremental,
-                bytes,
-            });
+            let category = if newest < incremental_cutoff {
+                Category::Incremental
+            } else {
+                Category::FreshIncremental
+            };
+            analysis.push(path, category, bytes);
         } else {
             rest_newest = Some(match rest_newest {
                 Some(cur) => cur.max(newest),
@@ -297,22 +315,19 @@ fn analyze_profile(
     }
 
     let category = match rest_newest {
-        Some(newest) if newest < cutoff => Category::Stale,
+        Some(newest) if newest < profile_cutoff => Category::Stale,
         _ => Category::Retained,
     };
     for (path, bytes) in rest {
-        match category {
-            Category::Stale => analysis.stale_bytes += bytes,
-            _ => analysis.retained_bytes += bytes,
-        }
-        analysis.total_bytes += bytes;
-        analysis.artifacts.push(Artifact {
-            path,
-            category,
-            bytes,
-        });
+        analysis.push(path, category, bytes);
     }
     Ok(())
+}
+
+fn cutoff(amount: u64, unit_seconds: u64) -> SystemTime {
+    SystemTime::now()
+        .checked_sub(Duration::from_secs(amount.saturating_mul(unit_seconds)))
+        .unwrap_or(SystemTime::UNIX_EPOCH)
 }
 
 /// Read a directory, mapping I/O failure to a typed [`TargetError`].
@@ -373,51 +388,19 @@ fn mtime_of(meta: &std::fs::Metadata) -> SystemTime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
-    use std::time::Duration;
-
-    /// Build a unique temp directory for a test.
-    fn temp_dir(tag: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let dir = std::env::temp_dir().join(format!(
-            "derust-target-{tag}-{}-{nanos}",
-            std::process::id()
-        ));
-        fs::create_dir_all(&dir).expect("create temp dir");
-        dir
-    }
-
-    /// Write `bytes` of content to `path`, creating parents, and set its mtime.
-    fn write_aged(path: &Path, len: usize, age_days: u64) {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).expect("create parents");
-        }
-        fs::write(path, vec![b'x'; len]).expect("write file");
-        let when = SystemTime::now()
-            .checked_sub(Duration::from_secs(age_days * 86_400))
-            .expect("aged time");
-        File::options()
-            .write(true)
-            .open(path)
-            .expect("open for mtime")
-            .set_modified(when)
-            .expect("set mtime");
-    }
+    use crate::test_support::{
+        cargo_project, temp_dir, write_aged, write_cachedir_tag, write_manifest,
+    };
+    use std::fs;
 
     /// Create a fixture project with a populated `target/` tree.
     /// Returns the project root; the caller removes it.
     fn fixture_project(tag: &str) -> PathBuf {
-        let root = temp_dir(tag);
-        fs::write(root.join("Cargo.toml"), "[package]\nname=\"x\"\n").expect("manifest");
+        let root = cargo_project("target", tag);
         let target = root.join("target");
-        fs::create_dir_all(&target).expect("target");
-        fs::write(target.join("CACHEDIR.TAG"), "Signature").expect("tag");
         // Fresh (retained) profile.
         write_aged(&target.join("debug/deps/lib.rlib"), 1000, 0);
-        write_aged(&target.join("debug/incremental/seg/x.o"), 500, 0);
+        write_aged(&target.join("debug/incremental/seg/x.o"), 500, 2);
         // Stale profile (very old).
         write_aged(&target.join("release/deps/lib.rlib"), 2000, 100);
         write_aged(&target.join("release/incremental/seg/y.o"), 700, 100);
@@ -426,8 +409,8 @@ mod tests {
 
     #[test]
     fn is_target_dir_requires_target_basename() {
-        let root = temp_dir("isdir");
-        fs::write(root.join("Cargo.toml"), "x").expect("manifest");
+        let root = temp_dir("target", "isdir");
+        write_manifest(&root, "x");
         let target = root.join("target");
         fs::create_dir_all(&target).expect("target");
         assert!(is_target_dir(&target));
@@ -439,9 +422,9 @@ mod tests {
     fn analyze_splits_categories_by_age() {
         let root = fixture_project("splits");
         let target = root.join("target");
-        let a = analyze(&target, 14).expect("analyze");
+        let a = analyze(&target, 14, 24).expect("analyze");
 
-        // Incremental = both incremental subtrees regardless of age.
+        // Incremental = both old incremental subtrees.
         assert_eq!(a.incremental_bytes, 500 + 700);
         // debug/deps is fresh → retained; release/deps is old → stale.
         assert_eq!(a.retained_bytes, 1000 + "Signature".len() as u64);
@@ -449,7 +432,7 @@ mod tests {
         assert_eq!(a.reclaimable_bytes(), 500 + 700 + 2000);
         assert_eq!(
             a.total_bytes,
-            a.incremental_bytes + a.stale_bytes + a.retained_bytes
+            a.incremental_bytes + a.fresh_incremental_bytes + a.stale_bytes + a.retained_bytes
         );
         let _ = fs::remove_dir_all(&root);
     }
@@ -510,8 +493,8 @@ mod tests {
         let crate_dir = root.join("crates/core");
         let crate_target = crate_dir.join("target");
         fs::create_dir_all(&crate_target).expect("crate target");
-        fs::write(crate_dir.join("Cargo.toml"), "[package]\nname=\"core\"\n").expect("manifest");
-        fs::write(crate_target.join("CACHEDIR.TAG"), "Signature").expect("tag");
+        write_manifest(&crate_dir, "core");
+        write_cachedir_tag(&crate_target);
 
         let project = Project {
             root: root.clone(),
@@ -532,7 +515,7 @@ mod tests {
     fn reclaimable_excludes_stale_unless_opted_in() {
         let root = fixture_project("recl");
         let target = root.join("target");
-        let a = analyze(&target, 14).expect("analyze");
+        let a = analyze(&target, 14, 24).expect("analyze");
 
         let incremental_only: u64 = a.reclaimable(false).map(|x| x.bytes).sum();
         assert_eq!(incremental_only, 500 + 700);
@@ -542,6 +525,21 @@ mod tests {
         assert!(a
             .reclaimable(true)
             .all(|x| x.category != Category::Retained));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn fresh_incremental_is_retained() {
+        let root = temp_dir("target", "fresh-incr");
+        let target = root.join("target");
+        write_manifest(&root, "x");
+        fs::create_dir_all(&target).expect("target");
+        write_aged(&target.join("debug/incremental/seg/x.o"), 500, 0);
+
+        let a = analyze(&target, 14, 24).expect("analyze");
+        assert_eq!(a.incremental_bytes, 0);
+        assert_eq!(a.retained_bytes, 500);
+        assert_eq!(a.reclaimable_bytes(), 0);
         let _ = fs::remove_dir_all(&root);
     }
 }

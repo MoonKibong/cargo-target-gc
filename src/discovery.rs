@@ -171,8 +171,11 @@ mod tests {
 
     #[test]
     fn missing_manifest_returns_err() {
-        // Use an isolated temp dir so we don't walk up into derust's own manifest.
-        let dir = std::env::temp_dir().join(format!("derust-no-manifest-{}", std::process::id()));
+        // Use an isolated temp dir so we don't walk up into cargo-target-gc's own manifest.
+        let dir = std::env::temp_dir().join(format!(
+            "cargo-target-gc-no-manifest-{}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         let result = discover(&dir);
         let _ = std::fs::remove_dir_all(&dir);

@@ -1,4 +1,4 @@
-//! `derust.toml` configuration loading.
+//! `target-gc.toml` configuration loading.
 //!
 //! A missing config file resolves to [`Config::default`]; malformed TOML yields
 //! a typed [`ConfigError`] instead of panicking.
@@ -10,13 +10,19 @@ use serde::{Deserialize, Serialize};
 
 /// Number of days an artifact must be untouched before it is considered stale.
 const DEFAULT_RETENTION_DAYS: u64 = 14;
+/// Number of hours incremental cache is kept warm before it is reclaimable.
+const DEFAULT_INCREMENTAL_RETENTION_HOURS: u64 = 24;
 
-/// Effective derust configuration for target-artifact garbage collection.
+/// Effective cargo-target-gc configuration for target-artifact garbage collection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     /// Artifacts whose newest mtime is older than this many days are stale.
     pub retention_days: u64,
+    /// Incremental cache newer than this many hours is retained for edit-build performance.
+    pub incremental_retention_hours: u64,
+    /// Optional maximum bytes a confirmed clean may reclaim without an override.
+    pub max_reclaim_bytes: Option<u64>,
     /// Optional crate path to scope analysis to, relative to the project root.
     pub crate_path: Option<PathBuf>,
 }
@@ -25,6 +31,8 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             retention_days: DEFAULT_RETENTION_DAYS,
+            incremental_retention_hours: DEFAULT_INCREMENTAL_RETENTION_HOURS,
+            max_reclaim_bytes: None,
             crate_path: None,
         }
     }
@@ -54,9 +62,9 @@ impl fmt::Display for ConfigError {
 
 impl std::error::Error for ConfigError {}
 
-/// Load configuration for `root`, reading `<root>/derust.toml` when present.
+/// Load configuration for `root`, reading `<root>/target-gc.toml` when present.
 pub fn load(root: &Path) -> Result<Config, ConfigError> {
-    load_file(&root.join("derust.toml"))
+    load_file(&root.join("target-gc.toml"))
 }
 
 /// Load configuration from an explicit file path; missing file → defaults.
@@ -85,7 +93,8 @@ mod tests {
 
     #[test]
     fn missing_file_yields_default() {
-        let dir = std::env::temp_dir().join(format!("derust-cfg-missing-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("target-gc-cfg-missing-{}", std::process::id()));
         let config = load(&dir).expect("missing file is ok");
         assert_eq!(config, Config::default());
     }
@@ -97,8 +106,13 @@ mod tests {
 
     #[test]
     fn valid_file_parses_retention() {
-        let config = parse("retention_days = 30\n").expect("parse");
+        let config = parse(
+            "retention_days = 30\nincremental_retention_hours = 6\nmax_reclaim_bytes = 1024\n",
+        )
+        .expect("parse");
         assert_eq!(config.retention_days, 30);
+        assert_eq!(config.incremental_retention_hours, 6);
+        assert_eq!(config.max_reclaim_bytes, Some(1024));
         // crate_path defaults to None when omitted.
         assert_eq!(config.crate_path, None);
     }
@@ -109,6 +123,7 @@ mod tests {
         assert_eq!(config.crate_path, Some(PathBuf::from("crates/core")));
         // retention_days falls back to the default when omitted.
         assert_eq!(config.retention_days, 14);
+        assert_eq!(config.incremental_retention_hours, 24);
     }
 
     #[test]

@@ -61,15 +61,19 @@ pub fn scan(path: &Path) -> Result<ScanReport, ScanError> {
     let roots = target::locate_roots(&project, &cfg.crate_path)?;
 
     eprintln!(
-        "derust: analyzing {} target root(s) under {}",
+        "cargo-target-gc: analyzing {} target root(s) under {}",
         roots.len(),
         project.root.display()
     );
 
     let mut analyses = Vec::with_capacity(roots.len());
     for root in &roots {
-        eprintln!("derust: scanning {}", root.display());
-        analyses.push(target::analyze(root, cfg.retention_days)?);
+        eprintln!("cargo-target-gc: scanning {}", root.display());
+        analyses.push(target::analyze(
+            root,
+            cfg.retention_days,
+            cfg.incremental_retention_hours,
+        )?);
     }
 
     Ok(build_report(&project.root.display().to_string(), analyses))
@@ -90,6 +94,7 @@ fn build_report(root: &str, analyses: Vec<RootAnalysis>) -> ScanReport {
                 path: a.root.display().to_string(),
                 total_bytes: a.total_bytes,
                 incremental_bytes: a.incremental_bytes,
+                fresh_incremental_bytes: a.fresh_incremental_bytes,
                 stale_bytes: a.stale_bytes,
                 retained_bytes: a.retained_bytes,
                 reclaimable_bytes: a.reclaimable_bytes(),
@@ -108,13 +113,20 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn analysis(root: &str, incremental: u64, stale: u64, retained: u64) -> RootAnalysis {
+    fn analysis(
+        root: &str,
+        incremental: u64,
+        fresh_incremental: u64,
+        stale: u64,
+        retained: u64,
+    ) -> RootAnalysis {
         RootAnalysis {
             root: PathBuf::from(root),
-            total_bytes: incremental + stale + retained,
+            total_bytes: incremental + fresh_incremental + stale + retained,
             incremental_bytes: incremental,
+            fresh_incremental_bytes: fresh_incremental,
             stale_bytes: stale,
-            retained_bytes: retained,
+            retained_bytes: fresh_incremental + retained,
             artifacts: Vec::new(),
         }
     }
@@ -124,12 +136,12 @@ mod tests {
         let report = build_report(
             "/proj",
             vec![
-                analysis("/proj/target", 100, 50, 200),
-                analysis("/proj/a/target", 10, 0, 5),
+                analysis("/proj/target", 100, 25, 50, 200),
+                analysis("/proj/a/target", 10, 0, 0, 5),
             ],
         );
         assert_eq!(report.summary.roots, 2);
-        assert_eq!(report.summary.total_bytes, 365);
+        assert_eq!(report.summary.total_bytes, 390);
         assert_eq!(report.summary.reclaimable_bytes, 160);
         assert_eq!(report.roots[0].reclaimable_bytes, 150);
     }

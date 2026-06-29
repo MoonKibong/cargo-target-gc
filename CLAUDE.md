@@ -1,21 +1,27 @@
 # CLAUDE.md
 
-This file guides Claude Code and Codex when working in **derust**.
+This file guides Claude Code and Codex when working in **cargo-target-gc**.
 
 > Keep under 150 lines: rules and links only. Everything else in `docs/`.
 
 ## What This Is
 
-derust — a Cargo **target-artifact garbage collector**. It discovers a Cargo
+cargo-target-gc — a Cargo **target-artifact garbage collector**. It discovers a Cargo
 project/workspace, analyzes the `target/` directories left by builds, and
 reports reclaimable space; with confirmation it cleans safe/stale artifacts
 while preserving build-hot ones. Commands: `scan` (read-only analysis), `clean`
 (`--dry-run` / `--confirm`), `config`.
 
 `scan` is a pure filesystem analysis: it **never invokes cargo** and creates no
-build artifacts. Artifacts are categorized as **incremental** (always
-reclaimable), **stale** (older than `retention_days` → reclaimable), or
-**retained** (build-hot → preserved). Reclaimable = incremental + stale.
+build artifacts. Artifacts are categorized as **incremental** (older than
+`incremental_retention_hours` → reclaimable), **stale** (older than
+`retention_days` → reclaimable), or **retained** (build-hot/warm → preserved).
+Reclaimable = old incremental + stale.
+
+Run `cargo target-gc` from the same directory where `cargo build` would be run. If a wrapper
+such as `make` builds a nested Cargo project, the user should `cd` into that
+Cargo project/workspace before running `cargo target-gc`; cargo-target-gc must not guess opaque
+wrapper build paths.
 
 Tech: Rust (edition 2021); clap (derive), serde/serde_json, toml, anyhow;
 assert_cmd + predicates for CLI tests.
@@ -24,9 +30,11 @@ assert_cmd + predicates for CLI tests.
 
 **ALWAYS ENFORCE:**
 1. Read-only by default — `scan` must never modify a target project and must
-   never run cargo. `clean` is the only mutating command: it refuses without
-   `--dry-run`/`--confirm`, removes only reclaimable artifacts, and only inside
-   a validated `target/` root.
+   never run cargo. Scope is explicit: analyze the selected Cargo root's
+   conventional `target/` directory, not hidden/nested wrapper targets. `clean`
+   is the only mutating command: it refuses without `--dry-run`/`--confirm`,
+   refuses active target roots unless explicitly forced, removes only
+   reclaimable artifacts, and only inside a validated `target/` root.
 2. Centralize the `target/` walk/categorization in `target.rs`; `clean` reuses
    `target::analyze` (no duplicated walk). No `unwrap()`/`expect()` outside
    tests — handle errors with typed/`anyhow` results.
@@ -53,6 +61,9 @@ Single test: `cargo test <name>` (e.g. `cargo test discovery`)
 | Topic | Location |
 |-------|----------|
 | Architecture | `docs/architecture/ARCHITECTURE.md` |
+| Open source readiness | `docs/oss/OPEN_SOURCE_READINESS.md` |
+| Contributing | `CONTRIBUTING.md` |
+| Security policy | `SECURITY.md` |
 | Implementation plans | `docs/implementation/` |
 | Reusable patterns | `docs/patterns/` |
 | Context engineering | `docs/dev/` |

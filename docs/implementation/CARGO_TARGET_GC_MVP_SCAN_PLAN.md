@@ -1,18 +1,18 @@
 ---
-order: derust-mvp-scan
+order: cargo-target-gc-mvp-scan
 updated: 2026-06-29T08:05:07Z
 ---
 
-# Plan: derust-mvp-scan
+# Plan: cargo-target-gc-mvp-scan
 
 ---
-order: derust-mvp-scan
+order: cargo-target-gc-mvp-scan
 updated: 2026-06-29T08:30:00Z
 ---
 
-# Plan: derust-mvp-scan
+# Plan: cargo-target-gc-mvp-scan
 
-# derust MVP — Read-only Rust Project Health Scan CLI
+# cargo-target-gc MVP — Read-only Rust Project Health Scan CLI
 
 ## Context & Decisions
 - Greenfield Rust scaffold: no Cargo.toml/src yet. Toolchain: cargo/rustc 1.94, clippy+fmt present.
@@ -20,15 +20,15 @@ updated: 2026-06-29T08:30:00Z
 - Stack: clap(derive), serde, serde_json, toml, anyhow; dev-dep assert_cmd + predicates for CLI tests.
 - Read-only ONLY: clippy runs `-- -D warnings`, fmt runs `--check`; NO auto-fix. Auto-fix documented as future work only.
 - DEDUP: a single generic cargo-command runner in probe.rs is shared by all four checks (check/test/fmt/clippy) — no per-check copy-paste.
-- Flag to PM: derust.toml schema kept minimal for MVP (check toggles + optional crate path); not a blocker.
+- Flag to PM: target-gc.toml schema kept minimal for MVP (check toggles + optional crate path); not a blocker.
 
 ### Task 1 — Cargo skeleton, CLI arg layer, Makefile, docs
 Files: Cargo.toml, src/main.rs, src/lib.rs, src/cli.rs, Makefile, README.md, CLAUDE.md.
-- Cargo.toml: package `derust` (edition 2021), bin `derust`, deps clap(derive)/serde/serde_json/toml/anyhow, dev-deps assert_cmd/predicates.
+- Cargo.toml: package `cargo-target-gc` (edition 2021), bin `cargo-target-gc`, deps clap(derive)/serde/serde_json/toml/anyhow, dev-deps assert_cmd/predicates.
 - src/cli.rs: clap `Cli` with subcommands `Scan{ path: Option<PathBuf>, json: bool }` and `Config{ path: Option<PathBuf> }`.
 - src/lib.rs declares `pub mod cli;` (+ later modules); src/main.rs parses Cli and dispatches to stub handlers returning Ok.
 - Makefile: build→`cargo build`, test→`cargo test`, lint→`cargo clippy -- -D warnings`, fmt→`cargo fmt`.
-- README.md + CLAUDE.md: replace TODO placeholders — define derust as a read-only Rust project health & refactoring-readiness CLI; list scan/config commands and feature scope; add "Future work: auto-fix mode (not in MVP)".
+- README.md + CLAUDE.md: replace TODO placeholders — define cargo-target-gc as a read-only Rust project health & refactoring-readiness CLI; list scan/config commands and feature scope; add "Future work: auto-fix mode (not in MVP)".
 Acceptance: `cargo build` exits 0; `cargo run -- --help` stdout contains `scan` and `config`; `cargo run -- scan --help` stdout contains `--json` and `--path`; `make build` invokes `cargo build`, `make lint` invokes `cargo clippy -- -D warnings`, `make fmt` invokes `cargo fmt`; `grep -c '\[TODO' README.md CLAUDE.md` returns 0 matches.
 
 ### Task 2 — Project/workspace discovery (src/discovery.rs)
@@ -38,7 +38,7 @@ Acceptance: `cargo build` exits 0; `cargo run -- --help` stdout contains `scan` 
 Acceptance: unit tests in `src/discovery.rs` cover single-package (asserts one crate found), workspace-with-2-members (`assert_eq!` member count == 2), and no-Cargo.toml (returns typed `Err`); `cargo test discovery` exits 0.
 
 ### Task 3 — Config loading + `config` subcommand (src/config.rs)
-- serde `Config` struct for optional derust.toml: per-check enable toggles (check/test/fmt/clippy) with sensible defaults, optional target crate path.
+- serde `Config` struct for optional target-gc.toml: per-check enable toggles (check/test/fmt/clippy) with sensible defaults, optional target crate path.
 - Missing file → defaults; invalid toml → typed error (no panic).
 - Add `pub mod config;` to src/lib.rs; wire main.rs `Config` subcommand to load + print resolved config.
 Acceptance: unit tests in `src/config.rs` cover missing-file→`Config::default()`, valid-file→parsed toggle values (`assert_eq!`), invalid-toml→`Err` (no panic); `cargo run -- config` prints the effective config to stdout; `cargo test config` exits 0.
