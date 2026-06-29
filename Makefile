@@ -1,13 +1,16 @@
-.PHONY: build test lint fmt
+.PHONY: build test lint fmt fmt-check
 
 build:
-	echo 'TODO: build'
+	cargo build
 
 test:
-	echo 'TODO: test'
+	cargo test
 
 lint:
-	echo 'TODO: lint'
+	cargo clippy -- -D warnings
 
 fmt:
-	echo 'TODO: fmt'
+	cargo fmt
+
+fmt-check:
+	cargo fmt --check

@@ -6,15 +6,23 @@ This file guides Claude Code and Codex when working in **derust**.
 
 ## What This Is
 
-derust — [TODO: one-line description].
+derust — a read-only Rust project health and refactoring-readiness CLI. It
+discovers a Cargo project/workspace, runs read-only toolchain checks (`cargo
+check`/`test`/`fmt --check`/`clippy -- -D warnings`), and reports a normalized
+human-readable or JSON summary. Commands: `scan`, `config`.
 
-Tech: (detect from project files)
+Tech: Rust (edition 2021); clap (derive), serde/serde_json, toml, anyhow;
+assert_cmd + predicates for CLI tests.
 
 ## Priority Guide
 
 **ALWAYS ENFORCE:**
-1. [TODO: top constraint]
-2. [TODO: second constraint]
+1. Read-only by default — derust must never modify a target project. No auto-fix
+   in the MVP (clippy runs `-- -D warnings`, fmt runs `--check`). Auto-fix is
+   documented future work only.
+2. Small, modular files with one shared cargo runner (no per-check copy-paste);
+   no `unwrap()`/`expect()` outside tests — handle errors with typed/`anyhow`
+   results.
 
 **DATA SAFETY:**
 - Never store secrets, tokens, or credentials in source files or logs.
@@ -31,7 +39,7 @@ make lint     # Run linter
 make fmt      # Auto-format code
 ```
 
-Single test: [TODO: single test command]
+Single test: `cargo test <name>` (e.g. `cargo test discovery`)
 
 ## Documentation Map
 

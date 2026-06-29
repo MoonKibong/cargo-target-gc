@@ -1,0 +1,3 @@
+# derust fixture config: every check enabled except clippy.
+[checks]
+clippy = false

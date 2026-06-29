@@ -1,2 +1,9 @@
 .DS_Store
 *.swp
+
+# Rust build artifacts
+/target
+
+# Test fixture build artifacts (generated when probes run against fixtures)
+tests/fixtures/**/target/
+tests/fixtures/**/Cargo.lock
