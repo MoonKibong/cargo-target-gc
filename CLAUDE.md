@@ -6,10 +6,16 @@ This file guides Claude Code and Codex when working in **derust**.
 
 ## What This Is
 
-derust — a read-only Rust project health and refactoring-readiness CLI. It
-discovers a Cargo project/workspace, runs read-only toolchain checks (`cargo
-check`/`test`/`fmt --check`/`clippy -- -D warnings`), and reports a normalized
-human-readable or JSON summary. Commands: `scan`, `config`.
+derust — a Cargo **target-artifact garbage collector**. It discovers a Cargo
+project/workspace, analyzes the `target/` directories left by builds, and
+reports reclaimable space; with confirmation it cleans safe/stale artifacts
+while preserving build-hot ones. Commands: `scan` (read-only analysis), `clean`
+(`--dry-run` / `--confirm`), `config`.
+
+`scan` is a pure filesystem analysis: it **never invokes cargo** and creates no
+build artifacts. Artifacts are categorized as **incremental** (always
+reclaimable), **stale** (older than `retention_days` → reclaimable), or
+**retained** (build-hot → preserved). Reclaimable = incremental + stale.
 
 Tech: Rust (edition 2021); clap (derive), serde/serde_json, toml, anyhow;
 assert_cmd + predicates for CLI tests.
@@ -17,12 +23,13 @@ assert_cmd + predicates for CLI tests.
 ## Priority Guide
 
 **ALWAYS ENFORCE:**
-1. Read-only by default — derust must never modify a target project. No auto-fix
-   in the MVP (clippy runs `-- -D warnings`, fmt runs `--check`). Auto-fix is
-   documented future work only.
-2. Small, modular files with one shared cargo runner (no per-check copy-paste);
-   no `unwrap()`/`expect()` outside tests — handle errors with typed/`anyhow`
-   results.
+1. Read-only by default — `scan` must never modify a target project and must
+   never run cargo. `clean` is the only mutating command: it refuses without
+   `--dry-run`/`--confirm`, removes only reclaimable artifacts, and only inside
+   a validated `target/` root.
+2. Centralize the `target/` walk/categorization in `target.rs`; `clean` reuses
+   `target::analyze` (no duplicated walk). No `unwrap()`/`expect()` outside
+   tests — handle errors with typed/`anyhow` results.
 
 **DATA SAFETY:**
 - Never store secrets, tokens, or credentials in source files or logs.

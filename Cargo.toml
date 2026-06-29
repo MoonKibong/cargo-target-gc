@@ -2,7 +2,7 @@
 name = "derust"
 version = "0.1.0"
 edition = "2021"
-description = "Read-only Rust project health and refactoring-readiness scan CLI"
+description = "Cargo target-artifact garbage collector: analyze and reclaim target/ build artifacts"
 license = "MIT"
 
 [[bin]]

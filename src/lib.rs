@@ -1,11 +1,13 @@
-//! derust — read-only Rust project health and refactoring-readiness scan library.
+//! derust — a read-only Cargo target-artifact garbage collector.
 //!
-//! All modules are read-only by design: probes never mutate the target project.
-//! Auto-fix is intentionally out of scope (see README "Future work").
+//! `scan` is a pure filesystem analysis of `target/` directories: it NEVER
+//! invokes cargo and creates no build artifacts. `clean` reuses the same walk
+//! to remove only reclaimable artifacts, and only with explicit confirmation.
 
+pub mod clean;
 pub mod cli;
 pub mod config;
 pub mod discovery;
-pub mod probe;
 pub mod report;
 pub mod scan;
+pub mod target;

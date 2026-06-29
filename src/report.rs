@@ -1,89 +1,98 @@
 //! Scan report data model and rendering (human-readable + JSON).
+//!
+//! JSON carries raw byte counts; text rendering humanizes sizes. Both describe
+//! the same target-artifact analysis produced by [`crate::target`].
 
 use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
 
-use crate::probe::CheckStatus;
-
-/// One check's entry in a scan report.
+/// One target root's contribution to a scan report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CheckEntry {
-    /// Check name (e.g. `clippy`).
-    pub name: String,
-    /// Outcome of the check.
-    pub status: CheckStatus,
-    /// Short detail (e.g. first stderr line) when not `Ok`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
+pub struct TargetRootReport {
+    /// Path to the `target/` root.
+    pub path: String,
+    /// Total bytes across every category.
+    pub total_bytes: u64,
+    /// Bytes in `incremental/` subtrees.
+    pub incremental_bytes: u64,
+    /// Bytes in stale profile artifacts.
+    pub stale_bytes: u64,
+    /// Bytes in retained (build-hot) artifacts.
+    pub retained_bytes: u64,
+    /// Estimated reclaimable bytes (`incremental_bytes` + `stale_bytes`).
+    pub reclaimable_bytes: u64,
 }
 
-/// Aggregate counts across all checks.
+/// Aggregate totals across all target roots.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Summary {
-    pub ok: usize,
-    pub failed: usize,
-    pub skipped: usize,
-    pub unavailable: usize,
+    /// Number of target roots analyzed.
+    pub roots: usize,
+    /// Total bytes across all roots.
+    pub total_bytes: u64,
+    /// Total reclaimable bytes across all roots.
+    pub reclaimable_bytes: u64,
 }
 
-impl Summary {
-    /// Tally a status into the summary.
-    pub fn record(&mut self, status: CheckStatus) {
-        match status {
-            CheckStatus::Ok => self.ok += 1,
-            CheckStatus::Failed => self.failed += 1,
-            CheckStatus::Skipped => self.skipped += 1,
-            CheckStatus::Unavailable => self.unavailable += 1,
-        }
-    }
-}
-
-/// The full result of a read-only project scan.
+/// The full result of a read-only target-artifact scan.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScanReport {
-    /// Absolute or relative root path that was scanned.
+    /// Project root that was scanned.
     pub root: String,
-    /// `package` or `workspace`.
-    pub kind: String,
-    /// Number of crate manifests discovered.
-    pub crates: usize,
-    /// Per-check results in canonical order.
-    pub checks: Vec<CheckEntry>,
-    /// Aggregate counts.
+    /// Per-target-root breakdowns.
+    pub roots: Vec<TargetRootReport>,
+    /// Aggregate totals.
     pub summary: Summary,
 }
 
 impl ScanReport {
-    /// Render a normalized, human-readable summary.
+    /// Render a normalized, human-readable summary with humanized sizes.
     pub fn render_text(&self) -> String {
         let mut out = String::new();
         let _ = writeln!(out, "derust scan: {}", self.root);
-        let _ = writeln!(out, "  project: {} ({} crate(s))", self.kind, self.crates);
-        let _ = writeln!(out, "  checks:");
-        for entry in &self.checks {
-            match &entry.detail {
-                Some(detail) => {
-                    let _ = writeln!(out, "    {:<8} {}  — {}", entry.name, entry.status, detail);
-                }
-                None => {
-                    let _ = writeln!(out, "    {:<8} {}", entry.name, entry.status);
-                }
-            }
+        if self.roots.is_empty() {
+            let _ = writeln!(out, "  no target/ directories found — nothing to reclaim");
+            return out;
+        }
+        for root in &self.roots {
+            let _ = writeln!(out, "  target: {}", root.path);
+            let _ = writeln!(out, "    total:       {}", human(root.total_bytes));
+            let _ = writeln!(out, "    incremental: {}", human(root.incremental_bytes));
+            let _ = writeln!(out, "    stale:       {}", human(root.stale_bytes));
+            let _ = writeln!(out, "    retained:    {}", human(root.retained_bytes));
+            let _ = writeln!(out, "    reclaimable: {}", human(root.reclaimable_bytes));
         }
         let s = &self.summary;
         let _ = writeln!(
             out,
-            "  summary: {} ok, {} failed, {} skipped, {} unavailable",
-            s.ok, s.failed, s.skipped, s.unavailable
+            "  summary: {} root(s), {} total, {} reclaimable",
+            s.roots,
+            human(s.total_bytes),
+            human(s.reclaimable_bytes)
         );
         out
     }
 
-    /// Render the report as pretty JSON.
+    /// Render the report as pretty JSON (raw byte counts).
     pub fn render_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
+}
+
+/// Format a byte count into a human-readable size (binary units).
+pub fn human(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
+    if bytes < 1024 {
+        return format!("{bytes} B");
+    }
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    format!("{value:.1} {}", UNITS[unit])
 }
 
 #[cfg(test)]
@@ -91,26 +100,21 @@ mod tests {
     use super::*;
 
     fn sample() -> ScanReport {
-        let mut summary = Summary::default();
-        summary.record(CheckStatus::Ok);
-        summary.record(CheckStatus::Failed);
         ScanReport {
-            root: "tests/fixtures/single-package".into(),
-            kind: "package".into(),
-            crates: 1,
-            checks: vec![
-                CheckEntry {
-                    name: "check".into(),
-                    status: CheckStatus::Ok,
-                    detail: None,
-                },
-                CheckEntry {
-                    name: "clippy".into(),
-                    status: CheckStatus::Failed,
-                    detail: Some("1 warning".into()),
-                },
-            ],
-            summary,
+            root: "/proj".into(),
+            roots: vec![TargetRootReport {
+                path: "/proj/target".into(),
+                total_bytes: 3_000_000,
+                incremental_bytes: 1_000_000,
+                stale_bytes: 500_000,
+                retained_bytes: 1_500_000,
+                reclaimable_bytes: 1_500_000,
+            }],
+            summary: Summary {
+                roots: 1,
+                total_bytes: 3_000_000,
+                reclaimable_bytes: 1_500_000,
+            },
         }
     }
 
@@ -123,10 +127,17 @@ mod tests {
     }
 
     #[test]
-    fn text_lists_each_check() {
+    fn text_lists_roots_and_reclaimable() {
         let text = sample().render_text();
-        assert!(text.contains("check"));
-        assert!(text.contains("clippy"));
+        assert!(text.contains("/proj/target"));
+        assert!(text.contains("reclaimable:"));
         assert!(text.contains("summary:"));
+    }
+
+    #[test]
+    fn human_uses_binary_units() {
+        assert_eq!(human(512), "512 B");
+        assert_eq!(human(1024), "1.0 KiB");
+        assert_eq!(human(1024 * 1024), "1.0 MiB");
     }
 }

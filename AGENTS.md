@@ -1,21 +1,23 @@
 # Repository Guidelines
 
+## What derust Is
+
+derust is a Cargo **target-artifact garbage collector**: it analyzes `target/` directories, reports **reclaimable** space, and (only with explicit confirmation) cleans safe/stale build artifacts while preserving build-hot ones. `scan` is a pure, read-only filesystem analysis — it never invokes cargo and creates no build artifacts; `clean` is the only mutating command and refuses without `--dry-run`/`--confirm`. Centralize the `target/` walk in `src/target.rs`; `clean` reuses `target::analyze`. No `unwrap()`/`expect()` outside tests.
+
 ## Project Structure & Module Organization
 
-The repository is being scaffolded: `Makefile`, `README.md`, and `CLAUDE.md` define the current conventions, and project documentation lives under `docs/` (`architecture/`, `implementation/`, `patterns/`, `specs/`, `schemas/`, `dev/`, and `archive/implementation/`). Keep the source layout simple and predictable as code is added: place application source in `src/`, tests in `tests/`, and static or sample assets in `assets/`. Put developer scripts in `scripts/`.
+Source lives in `src/` (`main.rs`, `lib.rs`, `cli.rs`, `discovery.rs`, `config.rs`, `target.rs`, `scan.rs`, `clean.rs`, `report.rs`), tests in `tests/`, and project documentation under `docs/` (`architecture/`, `implementation/`, `patterns/`, `specs/`, `schemas/`, `dev/`, and `archive/implementation/`). `Makefile`, `README.md`, and `CLAUDE.md` define the build commands and conventions. Keep the source layout simple and predictable; put developer scripts in `scripts/`.
 
 Prefer small modules with clear ownership. For example, Rust code should use `src/lib.rs` for reusable logic and `src/main.rs` for CLI or executable entry points. Name files and directories after their domain purpose, such as `parser`, `commands`, or `fixtures`.
 
 ## Build, Test, and Development Commands
 
-The canonical commands are defined in the `Makefile` and should be run from the repository root. These targets are placeholders today and currently shell out to `echo`; flesh them out as the build is implemented, keeping the same target names so the documented workflow stays stable.
+The canonical commands are defined in the `Makefile` and should be run from the repository root. Keep the same target names so the documented workflow stays stable.
 
-- `make build`: build the project.
-- `make test`: run the full test suite.
-- `make lint`: run lint checks.
-- `make fmt`: auto-format code.
-
-For a Rust project, wire these targets to the underlying tools — for example `cargo build`, `cargo test`, `cargo clippy -- -D warnings`, and `cargo fmt`.
+- `make build`: `cargo build`.
+- `make test`: `cargo test`.
+- `make lint`: `cargo clippy -- -D warnings`.
+- `make fmt`: `cargo fmt` (`make fmt-check` for `cargo fmt --check`).
 
 ## Coding Style & Naming Conventions
 

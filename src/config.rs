@@ -8,39 +8,26 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-/// Per-check enable toggles. Every check is enabled by default.
+/// Number of days an artifact must be untouched before it is considered stale.
+const DEFAULT_RETENTION_DAYS: u64 = 14;
+
+/// Effective derust configuration for target-artifact garbage collection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Checks {
-    /// Run `cargo check`.
-    pub check: bool,
-    /// Run `cargo test`.
-    pub test: bool,
-    /// Run `cargo fmt --check`.
-    pub fmt: bool,
-    /// Run `cargo clippy -- -D warnings`.
-    pub clippy: bool,
+pub struct Config {
+    /// Artifacts whose newest mtime is older than this many days are stale.
+    pub retention_days: u64,
+    /// Optional crate path to scope analysis to, relative to the project root.
+    pub crate_path: Option<PathBuf>,
 }
 
-impl Default for Checks {
+impl Default for Config {
     fn default() -> Self {
-        Checks {
-            check: true,
-            test: true,
-            fmt: true,
-            clippy: true,
+        Config {
+            retention_days: DEFAULT_RETENTION_DAYS,
+            crate_path: None,
         }
     }
-}
-
-/// Effective derust configuration.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Config {
-    /// Which checks the scan should run.
-    pub checks: Checks,
-    /// Optional crate path to target relative to the project root.
-    pub crate_path: Option<PathBuf>,
 }
 
 /// Errors that can occur while loading configuration.
@@ -104,22 +91,29 @@ mod tests {
     }
 
     #[test]
-    fn valid_file_parses_toggles() {
-        let config = parse("[checks]\nclippy = false\ntest = false\n").expect("parse");
-        assert!(config.checks.check);
-        assert!(!config.checks.clippy);
-        assert!(!config.checks.test);
+    fn default_retention_is_fourteen_days() {
+        assert_eq!(Config::default().retention_days, 14);
+    }
+
+    #[test]
+    fn valid_file_parses_retention() {
+        let config = parse("retention_days = 30\n").expect("parse");
+        assert_eq!(config.retention_days, 30);
+        // crate_path defaults to None when omitted.
+        assert_eq!(config.crate_path, None);
     }
 
     #[test]
     fn crate_path_parses() {
         let config = parse("crate_path = \"crates/core\"\n").expect("parse");
         assert_eq!(config.crate_path, Some(PathBuf::from("crates/core")));
+        // retention_days falls back to the default when omitted.
+        assert_eq!(config.retention_days, 14);
     }
 
     #[test]
     fn invalid_toml_returns_err() {
-        let result = parse("checks = [[[broken");
+        let result = parse("retention_days = [[[broken");
         assert!(result.is_err());
     }
 }

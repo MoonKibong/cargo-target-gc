@@ -1,3 +1,2 @@
-# derust fixture config: every check enabled except clippy.
-[checks]
-clippy = false
+# derust fixture config: a non-default retention window.
+retention_days = 30
